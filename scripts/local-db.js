@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 const directory = resolve('.local-db');
 await mkdir(directory, { recursive: true });
 const port = Number(process.env.LOCAL_DB_PORT || 5432);
-const database = new EmbeddedPostgres({ databaseDir: directory, user: 'sweety', password: 'sweety_dev', port, persistent: true, authMethod: 'scram-sha-256', postgresFlags: ['-h', '127.0.0.1', '-k', directory], onLog: () => {}, onError: (message) => { if (String(message).includes('FATAL')) console.error(message); } });
+const database = new EmbeddedPostgres({ databaseDir: directory, user: 'sweety', password: 'sweety_dev', port, persistent: true, autoRehydrateSymlinks: true, authMethod: 'scram-sha-256', postgresFlags: ['-h', '127.0.0.1', '-k', directory], onLog: () => {}, onError: (message) => { if (String(message).includes('FATAL')) console.error(message); } });
 try { await access(`${directory}/PG_VERSION`); } catch { await database.initialise(); }
 await database.start();
 const client = database.getPgClient();
