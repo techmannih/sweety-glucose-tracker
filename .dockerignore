@@ -1,0 +1,8 @@
+node_modules
+.git
+.env
+.local-db
+client/dist
+docs/screenshots
+coverage
+*.log

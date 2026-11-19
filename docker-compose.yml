@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: sweety
+      POSTGRES_PASSWORD: sweety_dev
+      POSTGRES_DB: sweety
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sweety -d sweety']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgres://sweety:sweety_dev@db:5432/sweety
+      HOST: 0.0.0.0
+      PORT: 3001
+      APP_ORIGIN: http://localhost:3001
+      APP_TIMEZONE: Asia/Kolkata
+      # This Compose profile is a localhost demo, not a production deployment.
+      NODE_ENV: development
+      COOKIE_SECURE: 'false'
+      SERVE_CLIENT: 'true'
+      DEMO_EMAIL: demo@sweety.local
+      DEMO_PASSWORD: SweetyDemo2026!
+    ports:
+      - '127.0.0.1:3001:3001'
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ['sh', '-c', 'node server/db/migrate.js && node server/src/index.js']
+volumes:
+  postgres_data:

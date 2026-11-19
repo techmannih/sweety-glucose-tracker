@@ -16,11 +16,20 @@ export function createApp(pool, config, { limitAuth = true } = {}) {
   app.use(cookieParser());
   app.use('/api', (req, res, next) => {
     res.set('Cache-Control', 'no-store');
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('origin') !== config.origin) throw new HttpError(403, 'This request did not come from the app. Please refresh and try again.');
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('origin') !== config.origin)
+      throw new HttpError(
+        403,
+        'This request did not come from the app. Please refresh and try again.',
+      );
     next();
   });
-  app.get('/api/health', async (req, res) => { await pool.query('SELECT 1'); res.json({ status: 'ok' }); });
-  app.get('/api/config', (req, res) => res.json({ today: todayInZone(config.timeZone), timeZone: config.timeZone }));
+  app.get('/api/health', async (req, res) => {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok' });
+  });
+  app.get('/api/config', (req, res) =>
+    res.json({ today: todayInZone(config.timeZone), timeZone: config.timeZone }),
+  );
   app.use('/api/auth', authRouter(pool, config, limitAuth));
   app.use('/api/readings', requireUser(pool), readingsRouter(pool, config));
   app.use('/api/reports', requireUser(pool), reportsRouter(pool, config));

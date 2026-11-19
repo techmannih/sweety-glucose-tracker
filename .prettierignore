@@ -1,0 +1,5 @@
+package-lock.json
+client/dist
+.local-db
+node_modules
+docs/screenshots
