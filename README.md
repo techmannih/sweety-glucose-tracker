@@ -16,7 +16,7 @@ A private glucose journal built with **React, Node.js, Express and PostgreSQL**.
 
 ## Quick start without Docker
 
-Requires Node.js **22.12+** (Node 24 LTS recommended) and npm. Run all commands from the repository root. The optional embedded database is real PostgreSQL, installed from npm for the host platform; the app uses the standard `pg` driver in every mode.
+Use **Node.js 24 LTS** and npm; `.nvmrc` records the recommended Node version. Run all commands from the repository root. The optional embedded database is real PostgreSQL, installed from npm for the host platform; the app uses the standard `pg` driver in every mode.
 
 ```sh
 npm ci
@@ -217,5 +217,7 @@ All screenshots use the fictional seeded account:
 - [Empty report](docs/screenshots/06-empty-state.jpg)
 
 ## Submission
+
+The [requirement audit](docs/requirements.md) maps every mandatory feature and submission item to its implementation, evidence or remaining external step.
 
 The repository is ready to review and push to a public GitHub repository. It includes incremental Git commits, source, the lockfile, `.env.example`, setup instructions, seed script, tests and screenshots. No GitHub repository has been created or pushed, and no email has been sent by this implementation task.

@@ -14,7 +14,9 @@ const database = new EmbeddedPostgres({
   persistent: true,
   autoRehydrateSymlinks: true,
   authMethod: 'scram-sha-256',
-  postgresFlags: ['-h', '127.0.0.1', '-k', directory],
+  // The app uses TCP. Disabling Unix sockets also avoids socket-path limits
+  // when a reviewer extracts the repository into a deeply nested directory.
+  postgresFlags: ['-h', '127.0.0.1', '-k', ''],
   onLog: () => {},
   onError: (message) => {
     if (String(message).includes('FATAL')) console.error(message);
@@ -26,7 +28,7 @@ try {
   await database.initialise();
 }
 await database.start();
-const client = database.getPgClient();
+const client = database.getPgClient('postgres', '127.0.0.1');
 await client.connect();
 if (!(await client.query("SELECT 1 FROM pg_database WHERE datname='sweety'")).rowCount)
   await client.query('CREATE DATABASE sweety');
