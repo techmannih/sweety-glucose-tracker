@@ -1,24 +1,35 @@
 import { useState } from 'react';
-import { Droplet, ShieldCheck, Activity, Sprout } from 'lucide-react';
+import { Droplet, ShieldCheck, Activity, Sprout, Check } from 'lucide-react';
 import { api } from '../api.js';
+import { normalizeEmail, SIGNUP_SUCCESS_MESSAGE, validateAuth } from '../../../shared/auth.js';
 
 export default function Auth({ onLogin }) {
   const [register, setRegister] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [fields, setFields] = useState({});
   const [busy, setBusy] = useState(false);
   async function submit(event) {
     event.preventDefault();
-    setBusy(true);
     setError('');
-    setFields({});
+    const errors = validateAuth(form, { register });
+    setFields(errors);
+    if (Object.keys(errors).length) return;
+    setBusy(true);
+    setSuccess('');
     try {
       const result = await api(`/auth/${register ? 'register' : 'login'}`, {
         method: 'POST',
-        body: form,
+        body: { ...form, email: normalizeEmail(form.email) },
       });
-      onLogin(result.user);
+      if (register) {
+        setRegister(false);
+        setSuccess(result.message || SIGNUP_SUCCESS_MESSAGE);
+        setForm({ name: '', email: normalizeEmail(form.email), password: '' });
+      } else {
+        onLogin(result.user);
+      }
     } catch (error) {
       setError(error.message);
       setFields(error.fields || {});
@@ -87,7 +98,13 @@ export default function Auth({ onLogin }) {
               ? 'Create an account to begin recording your readings.'
               : 'Log in and pick up where you left off.'}
           </p>
-          <form onSubmit={submit}>
+          {success && (
+            <div className="toast auth-success" role="status">
+              <Check size={18} aria-hidden="true" />
+              <span>{success}</span>
+            </div>
+          )}
+          <form onSubmit={submit} noValidate>
             {register && (
               <>
                 <label htmlFor="name">Your name</label>
@@ -100,8 +117,13 @@ export default function Auth({ onLogin }) {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   aria-invalid={!!fields.name}
+                  aria-describedby={fields.name ? 'name-error' : undefined}
                 />
-                {fields.name && <p className="field-error">{fields.name}</p>}
+                {fields.name && (
+                  <p className="field-error" id="name-error" role="alert">
+                    {fields.name}
+                  </p>
+                )}
               </>
             )}
             <label htmlFor="email">Email address</label>
@@ -116,8 +138,13 @@ export default function Auth({ onLogin }) {
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               aria-invalid={!!fields.email}
+              aria-describedby={fields.email ? 'email-error' : undefined}
             />
-            {fields.email && <p className="field-error">{fields.email}</p>}
+            {fields.email && (
+              <p className="field-error" id="email-error" role="alert">
+                {fields.email}
+              </p>
+            )}
             <label htmlFor="password">Password</label>
             <input
               id="password"
@@ -129,9 +156,14 @@ export default function Auth({ onLogin }) {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               aria-invalid={!!fields.password}
+              aria-describedby={fields.password ? 'password-error' : undefined}
             />
             {register && <p className="input-hint">At least 8 characters, up to 72 UTF-8 bytes.</p>}
-            {fields.password && <p className="field-error">{fields.password}</p>}
+            {fields.password && (
+              <p className="field-error" id="password-error" role="alert">
+                {fields.password}
+              </p>
+            )}
             {error && (
               <div className="alert" role="alert">
                 {error}
@@ -145,10 +177,12 @@ export default function Auth({ onLogin }) {
             {register ? 'Already have an account?' : 'New to Sweety?'}{' '}
             <button
               className="text-button"
+              disabled={busy}
               onClick={() => {
                 setRegister(!register);
                 setError('');
                 setFields({});
+                setSuccess('');
               }}
             >
               {register ? 'Log in' : 'Create an account'}

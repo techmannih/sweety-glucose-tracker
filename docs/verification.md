@@ -1,15 +1,24 @@
 # Verification
 
-Verified on 19 November 2026 using macOS arm64, Node 26.7.0, a real PostgreSQL 18.6 local instance and the Codex in-app Chromium browser.
+Original browser verification: 19 November 2026, macOS arm64 and the Codex in-app Chromium browser. Latest signup-flow verification: 20 November 2026, using Node 26.7.0, Node 24.22.3, React Testing Library and real PostgreSQL 18.6 integration tests.
 
 ## Automated checks
 
-- `npm test`: 16 server/domain tests and 7 React Testing Library tests pass.
+- `npm test`: 18 server/domain tests and 19 React Testing Library tests pass (37 total), on both Node 26 and the recommended Node 24.
 - `npm run build`: production React build succeeds.
 - npm dependency audit: zero known vulnerabilities in the installed lockfile at verification time.
 - The server tests create and drop an isolated temporary PostgreSQL database. These are real SQL integration tests, not database mocks.
 
-## Fresh reviewer setup
+## Signup and email update (20 November 2026)
+
+- All five requested addresses pass both form and API tests: `alex@example.com`, `alex123@example.com`, `alex.morgan@example.com`, `alex_123@example.net`, and `developer@example.org`.
+- Malformed formats, including missing TLDs, repeated dots, repeated @ signs, and invalid domain labels, are rejected before account creation. This checks format only; no verification email is sent.
+- Signup returns the success message without setting a cookie or creating a session. Protected endpoints remain inaccessible until explicit login.
+- Frontend tests confirm the success message, the prefilled login email, the cleared password and no dashboard callback until the user submits a successful login.
+- The `bcrypt` package creates `$2b$` hashes with cost 12, and tests compare the saved hash with the password. The running local demo also accepts its existing hash after the package change.
+- These updated interactions were checked with automated form and API tests; no new browser screenshot is claimed for this change.
+
+## Fresh reviewer setup (19 November 2026)
 
 The delivered ZIP was extracted into a separate folder with no existing `node_modules`, `.env` or database. Using bundled Node **24.22.3**, `npm ci` installed the exact lockfile, all 23 tests passed, the production build succeeded and the formatting check passed.
 

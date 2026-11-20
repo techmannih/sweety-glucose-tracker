@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import { rateLimit } from 'express-rate-limit';
 import { HttpError } from './errors.js';
+import { normalizeEmail, SIGNUP_SUCCESS_MESSAGE, validateAuth } from '../../shared/auth.js';
 
 const COOKIE = 'sweety_session';
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -54,24 +55,10 @@ export function authRouter(pool, config, limitAuth = true) {
 
   router.post('/register', async (req, res) => {
     const { name, email, password } = req.body || {};
-    const fields = {};
-    if (typeof name !== 'string' || !name.trim() || name.trim().length > 80)
-      fields.name = 'Enter a name between 1 and 80 characters.';
-    if (
-      typeof email !== 'string' ||
-      email.trim().length > 254 ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-    )
-      fields.email = 'Please enter a valid email address.';
-    if (
-      typeof password !== 'string' ||
-      password.length < 8 ||
-      Buffer.byteLength(password, 'utf8') > 72
-    )
-      fields.password = 'Use at least 8 characters and at most 72 UTF-8 bytes.';
+    const fields = validateAuth({ name, email, password }, { register: true });
     if (Object.keys(fields).length)
       throw new HttpError(400, 'Please check the highlighted fields.', fields);
-    const user = { id: randomUUID(), name: name.trim(), email: email.trim().toLowerCase() };
+    const user = { id: randomUUID(), name: name.trim(), email: normalizeEmail(email) };
     const hash = await bcrypt.hash(password, 12);
     const client = await pool.connect();
     try {
@@ -82,12 +69,9 @@ export function authRouter(pool, config, limitAuth = true) {
         user.email,
         hash,
       ]);
-      const token = await sessionToken(client, user.id);
       await client.query('COMMIT');
-      res
-        .cookie(COOKIE, token, { ...cookieOptions(config), maxAge: MAX_AGE })
-        .status(201)
-        .json({ user });
+      // Registration only creates the account. A separate login is required.
+      res.status(201).json({ message: SIGNUP_SUCCESS_MESSAGE });
     } catch (error) {
       await client.query('ROLLBACK');
       if (error.code === '23505')
@@ -102,15 +86,12 @@ export function authRouter(pool, config, limitAuth = true) {
 
   router.post('/login', async (req, res) => {
     const { email, password } = req.body || {};
-    if (
-      typeof email !== 'string' ||
-      typeof password !== 'string' ||
-      Buffer.byteLength(password, 'utf8') > 72
-    )
-      throw new HttpError(400, 'Please enter your email and password.');
+    const fields = validateAuth({ email, password });
+    if (Object.keys(fields).length)
+      throw new HttpError(400, 'Please check the highlighted fields.', fields);
     const { rows } = await pool.query(
       'SELECT id,name,email,password_hash FROM users WHERE email=$1',
-      [email.trim().toLowerCase()],
+      [normalizeEmail(email)],
     );
     const user = rows[0];
     const matches = await bcrypt.compare(password, user?.password_hash || dummyHash);

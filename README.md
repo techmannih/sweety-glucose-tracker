@@ -6,7 +6,8 @@ A private glucose journal built with **React, Node.js, Express and PostgreSQL**.
 
 ## Features
 
-- Registration and login with bcrypt password hashing (cost 12).
+- Registration and a separate login, with the `bcrypt` package for password hashing (cost 12). Successful signup shows "Sign up successful! Please log in to continue." and returns to the login form; it does not create a session or open the dashboard.
+- Shared email-format validation in the React form and API accepts common personal and company addresses, including dots, digits and underscores. Email syntax validation does not verify mailbox ownership or deliverability.
 - Opaque, revocable seven-day sessions in HttpOnly cookies. Only session token hashes are stored in PostgreSQL.
 - Each account can access only its own readings and reports.
 - Create, view, edit and delete readings in four fixed slots: Morning (fasting), After breakfast, After lunch and After dinner.
@@ -125,14 +126,14 @@ The server suite starts a temporary real PostgreSQL instance, creates a random i
 
 The tests cover:
 
-- Password/session hashing, normalized and duplicate emails, bcrypt byte limits, login, logout and session expiry.
+- Signup success without automatic login, email-format validation, normalized/duplicate emails, bcrypt password hashing and byte limits, session hashing, explicit login, logout and expiry.
 - Authentication, cross-account isolation and cross-origin request rejection.
 - Reading CRUD, invalid inputs, edit conflicts, concurrent duplicates, and database constraints.
 - Daily, month-to-date and previous-month aggregates, boundary inclusivity, leap years, January rollover, rounding and empty reports.
 - Pagination, slot order and date filters.
 - Form errors, successful submission, server error handling and editing/cancel behavior.
 
-Verification performed in this workspace: **16 server/domain tests and 7 frontend tests passed**, production Vite build succeeded, and npm audit reported **0 vulnerabilities** at the time of verification. Browser verification and screenshots are described in [docs/verification.md](docs/verification.md). Docker was not installed on the verification host, so the Compose workflow is provided but was not run here.
+Verification performed in this workspace: **18 server/domain tests and 19 frontend tests passed**, production Vite build succeeded, and npm audit reported **0 vulnerabilities** at the time of verification. Browser verification and screenshots are described in [docs/verification.md](docs/verification.md). Docker was not installed on the verification host, so the Compose workflow is provided but was not run here.
 
 ## Environment variables
 
@@ -155,19 +156,19 @@ Every app setting is listed in `.env.example`. No real secrets belong in Git.
 
 All routes are under `/api`. Protected routes use the session cookie. Validation errors return `{ "message": "...", "fields": { "value": "..." } }`; `fields` is optional. No passwords or session hashes are returned.
 
-| Method   | Route                                       | Purpose                                                   |
-| -------- | ------------------------------------------- | --------------------------------------------------------- |
-| `GET`    | `/health`                                   | Database connectivity check.                              |
-| `GET`    | `/config`                                   | Current application date and timezone.                    |
-| `POST`   | `/auth/register`                            | `{name,email,password}`; creates account and session.     |
-| `POST`   | `/auth/login`                               | `{email,password}`; creates/rotates session.              |
-| `POST`   | `/auth/logout`                              | Revokes the current session.                              |
-| `GET`    | `/auth/me`                                  | Returns current safe account details.                     |
-| `GET`    | `/readings?page=1&limit=20&date=2026-10-15` | Paginated own readings; date is optional, limit is 1-100. |
-| `POST`   | `/readings`                                 | `{date,slot,value}`; creates a reading.                   |
-| `PUT`    | `/readings/:id`                             | Replaces a reading's date, slot and value.                |
-| `DELETE` | `/readings/:id`                             | Deletes an owned reading.                                 |
-| `GET`    | `/reports?kind=daily&date=2026-10-15`       | Returns range, summary statistics and ordered readings.   |
+| Method   | Route                                       | Purpose                                                                                            |
+| -------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `GET`    | `/health`                                   | Database connectivity check.                                                                       |
+| `GET`    | `/config`                                   | Current application date and timezone.                                                             |
+| `POST`   | `/auth/register`                            | `{name,email,password}`; creates only an account and returns a success message. Login is required. |
+| `POST`   | `/auth/login`                               | `{email,password}`; creates/rotates session.                                                       |
+| `POST`   | `/auth/logout`                              | Revokes the current session.                                                                       |
+| `GET`    | `/auth/me`                                  | Returns current safe account details.                                                              |
+| `GET`    | `/readings?page=1&limit=20&date=2026-10-15` | Paginated own readings; date is optional, limit is 1-100.                                          |
+| `POST`   | `/readings`                                 | `{date,slot,value}`; creates a reading.                                                            |
+| `PUT`    | `/readings/:id`                             | Replaces a reading's date, slot and value.                                                         |
+| `DELETE` | `/readings/:id`                             | Deletes an owned reading.                                                                          |
+| `GET`    | `/reports?kind=daily&date=2026-10-15`       | Returns range, summary statistics and ordered readings.                                            |
 
 Slots: `morning`, `after_breakfast`, `after_lunch`, `after_dinner`. Reports: `daily`, `month-to-date`, `monthly`. A report's `monthly` kind is explicitly the **entire previous month**. For 15 October 2026: daily is 15 October, MTD is 1-15 October, and monthly is 1-30 September.
 
@@ -178,7 +179,7 @@ client/              React screens, components, styles and form tests
 server/src/          Express app, authentication, reading/report routes
 server/db/           SQL schema, migration and seed scripts
 server/test/         API integration tests and date/validation tests
-shared/domain.js     Slot definitions, date helpers and shared form validation
+shared/              Shared reading/email validation, slot definitions and date helpers
 scripts/local-db.js  Optional local PostgreSQL launcher
 docs/                Verification notes and actual browser screenshots
 ```

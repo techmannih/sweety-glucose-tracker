@@ -1,6 +1,6 @@
 # Assessment requirement audit
 
-Checked against the supplied Sweety assignment on 19 November 2026. This distinguishes implementation completeness from the external submission steps.
+Checked against the supplied Sweety assignment on 19 November 2026; updated for the requested signup behavior on 20 November 2026. This distinguishes implementation completeness from the external submission steps.
 
 ## Required application behavior
 
@@ -8,7 +8,7 @@ Checked against the supplied Sweety assignment on 19 November 2026. This disting
 | ----------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | React frontend, Node/Express API, PostgreSQL database | `client/`, `server/src/`, `server/db/schema.sql`                  | Production build and integration tests against real PostgreSQL pass.              |
 | Register with name, email and password; log in        | `/api/auth/register`, `/api/auth/login`                           | Registration, validation, login and logout tests; browser login verified.         |
-| Hash passwords with bcrypt                            | bcrypt algorithm via `bcryptjs`, cost 12                          | Stored bcrypt hashes and password comparison checked in API tests.                |
+| Hash passwords with bcrypt                            | The `bcrypt` package, cost 12                                     | Stored bcrypt hashes and password comparison checked in API tests.                |
 | Users see only their own readings                     | Account-scoped list, report, update and delete queries            | A second account cannot list, report, edit or delete the first account's reading. |
 | Add, view, edit and delete readings                   | `/api/readings` routes, dashboard and reading history             | API tests and real browser CRUD checks.                                           |
 | Exactly four permitted slots                          | Shared slot definitions plus SQL CHECK constraint                 | UI options, invalid-slot tests and direct SQL constraint test.                    |
@@ -23,6 +23,15 @@ Checked against the supplied Sweety assignment on 19 November 2026. This disting
 | Monthly report                                        | Entire month before the selected date's month                     | Month/year/leap-year tests and previous-month screenshot.                         |
 | Highest, lowest, one-decimal average and count        | PostgreSQL aggregation plus one-decimal UI formatting             | Exact aggregate assertions, including a non-terminating average.                  |
 | Friendly empty reports                                | Zero count, dashes for absent statistics, empty-state text        | Empty-report API test and actual empty-state screenshot.                          |
+
+## Requested signup refinements
+
+- **Valid email formats:** common personal/company addresses, including all five supplied examples, are accepted. Invalid formats show a field error in the UI and are rejected by the API. Format validation does not verify that a mailbox exists.
+- **No automatic login after signup:** the account is saved, a success message is shown, and the form switches to login with the email retained and password cleared. No session or cookie is issued at registration.
+- **Separate login:** only a successful login creates the session and opens the dashboard.
+- **bcrypt:** password hashes use the `bcrypt` package with cost 12. Passwords are never stored as plain text.
+
+The API and React form tests cover each refinement.
 
 ## Required submission materials
 

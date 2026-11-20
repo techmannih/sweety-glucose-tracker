@@ -6,9 +6,10 @@ import { createServer } from 'node:net';
 import pg from 'pg';
 import EmbeddedPostgres from 'embedded-postgres';
 import request from 'supertest';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import { createApp } from '../src/app.js';
 import { migrate } from '../db/migrate.js';
+import { SIGNUP_SUCCESS_MESSAGE } from '../../shared/auth.js';
 
 const config = {
   origin: 'http://localhost:5173',
@@ -27,10 +28,15 @@ async function account(email = `${randomUUID()}@example.test`) {
     .set(headers)
     .send({ name: 'Test User', email, password: 'TestPassword123!' });
   assert.equal(response.status, 201, JSON.stringify(response.body));
+  const login = await agent
+    .post('/api/auth/login')
+    .set(headers)
+    .send({ email, password: 'TestPassword123!' });
+  assert.equal(login.status, 200, JSON.stringify(login.body));
   return {
     agent,
-    user: response.body.user,
-    cookie: response.headers['set-cookie'][0].split(';')[0],
+    user: login.body.user,
+    cookie: login.headers['set-cookie'][0].split(';')[0],
   };
 }
 
@@ -81,27 +87,94 @@ after(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 
-test('registration hashes the password and session token, normalizes email, and sets an HttpOnly cookie', async () => {
-  const { user, cookie, agent } = await account('MixedCase@Example.Test');
-  assert.equal(user.email, 'mixedcase@example.test');
-  assert.equal(user.password_hash, undefined);
-  const stored = (await pool.query('SELECT password_hash FROM users WHERE id=$1', [user.id]))
-    .rows[0].password_hash;
-  assert.match(stored, /^\$2[aby]\$12\$/);
-  assert.ok(await bcrypt.compare('TestPassword123!', stored));
-  const tokenHash = (await pool.query('SELECT token_hash FROM sessions')).rows[0].token_hash;
-  assert.notEqual(tokenHash, cookie.split('=')[1]);
+test('signup hashes the password but creates no session; a separate login creates the HttpOnly cookie', async () => {
+  const agent = request.agent(app);
+  const signup = await agent
+    .post('/api/auth/register')
+    .set(headers)
+    .send({
+      name: 'Test User',
+      email: 'MixedCase@Example.Test',
+      password: 'TestPassword123!',
+    })
+    .expect(201);
+  assert.deepEqual(signup.body, { message: SIGNUP_SUCCESS_MESSAGE });
+  assert.equal(signup.headers['set-cookie'], undefined);
+  assert.equal((await pool.query('SELECT count(*) FROM sessions')).rows[0].count, '0');
+  await agent.get('/api/auth/me').expect(401);
+  await agent.get('/api/readings').expect(401);
+  const storedUser = (await pool.query('SELECT * FROM users')).rows[0];
+  assert.match(storedUser.password_hash, /^\$2b\$12\$/);
+  assert.equal(bcrypt.getRounds(storedUser.password_hash), 12);
+  assert.notEqual(storedUser.password_hash, 'TestPassword123!');
+  assert.ok(await bcrypt.compare('TestPassword123!', storedUser.password_hash));
   const login = await agent
     .post('/api/auth/login')
     .set(headers)
-    .send({ email: user.email, password: 'TestPassword123!' });
+    .send({ email: 'MixedCase@Example.Test', password: 'TestPassword123!' })
+    .expect(200);
+  const user = login.body.user;
+  assert.equal(user.email, 'mixedcase@example.test');
+  assert.equal(user.password_hash, undefined);
+  const tokenHash = (await pool.query('SELECT token_hash FROM sessions')).rows[0].token_hash;
+  const cookie = login.headers['set-cookie'][0].split(';')[0];
+  assert.notEqual(tokenHash, cookie.split('=')[1]);
   assert.match(login.headers['set-cookie'][0], /HttpOnly/);
   assert.match(login.headers['set-cookie'][0], /SameSite=Lax/);
+  await agent.get('/api/auth/me').expect(200);
   const duplicate = await request(app)
     .post('/api/auth/register')
     .set(headers)
     .send({ name: 'Another', email: 'MIXEDCASE@example.test', password: 'OtherPassword123!' });
   assert.equal(duplicate.status, 409);
+});
+
+test('signup accepts all five requested email formats without logging in', async () => {
+  for (const email of [
+    'alex@example.com',
+    'alex123@example.com',
+    'alex.morgan@example.com',
+    'alex_123@example.net',
+    'developer@example.org',
+  ]) {
+    const response = await request(app)
+      .post('/api/auth/register')
+      .set(headers)
+      .send({ name: 'Test User', email, password: 'TestPassword123!' });
+    assert.equal(response.status, 201, email);
+    assert.equal(response.headers['set-cookie'], undefined);
+    assert.equal(response.body.message, SIGNUP_SUCCESS_MESSAGE);
+  }
+  assert.equal((await pool.query('SELECT count(*) FROM users')).rows[0].count, '5');
+  assert.equal((await pool.query('SELECT count(*) FROM sessions')).rows[0].count, '0');
+});
+
+test('signup rejects malformed email addresses before saving an account', async () => {
+  for (const email of [
+    '',
+    'manish',
+    'manish@gmail',
+    'manish@@gmail.com',
+    'manish..chaudhary@gmail.com',
+    '.alex@example.com',
+    'manish.@gmail.com',
+    'manish@gmail..com',
+    'manish@-gmail.com',
+    'manish@g_mail.com',
+    'manish name@gmail.com',
+    'Manish <alex@example.com>',
+    `${'m'.repeat(65)}@gmail.com`,
+    null,
+    ['alex@example.com'],
+  ]) {
+    const response = await request(app)
+      .post('/api/auth/register')
+      .set(headers)
+      .send({ name: 'Test User', email, password: 'TestPassword123!' });
+    assert.equal(response.status, 400, JSON.stringify(email));
+    assert.equal(response.body.fields.email, 'Please enter a valid email address.');
+  }
+  assert.equal((await pool.query('SELECT count(*) FROM users')).rows[0].count, '0');
 });
 
 test('registration rejects invalid fields and passwords exceeding bcrypt UTF-8 limits', async () => {

@@ -1040,6 +1040,11 @@ td {
 .auth-form-inner .primary {
   margin-top: 26px;
 }
+.auth-success {
+  margin-top: 20px;
+  margin-bottom: 0;
+  align-items: flex-start;
+}
 .auth-switch {
   font-size: 0.8125rem;
   margin-top: 20px;

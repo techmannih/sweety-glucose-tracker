@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import pg from 'pg';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import { randomUUID } from 'node:crypto';
 import { todayInZone, SLOTS, reportRange } from '../../shared/domain.js';
 
