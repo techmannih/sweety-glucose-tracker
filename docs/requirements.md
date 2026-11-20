@@ -28,7 +28,7 @@ Checked against the supplied Sweety assignment on 19 November 2026; updated for 
 
 - **Valid email formats:** common personal/company addresses, including all five supplied examples, are accepted. Invalid formats show a field error in the UI and are rejected by the API. Format validation does not verify that a mailbox exists.
 - **No automatic login after signup:** the account is saved, a success message is shown, and the form switches to login with the email retained and password cleared. No session or cookie is issued at registration.
-- **Separate login:** only a successful login creates the session and opens the dashboard.
+- **Separate login:** only a successful login creates the session and opens the dashboard, with a "Login successful!" message.
 - **bcrypt:** password hashes use the `bcrypt` package with cost 12. Passwords are never stored as plain text.
 
 The API and React form tests cover each refinement.

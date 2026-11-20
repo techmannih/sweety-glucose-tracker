@@ -32,6 +32,7 @@ const reportKinds = [
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [loginNotice, setLoginNotice] = useState('');
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -73,11 +74,29 @@ export default function App() {
         </button>
       </div>
     );
-  if (!user) return <Auth onLogin={setUser} />;
-  return <Dashboard user={user} config={config} onLogout={() => setUser(null)} />;
+  if (!user)
+    return (
+      <Auth
+        onLogin={(signedInUser) => {
+          setLoginNotice('Login successful!');
+          setUser(signedInUser);
+        }}
+      />
+    );
+  return (
+    <Dashboard
+      user={user}
+      config={config}
+      initialNotice={loginNotice}
+      onLogout={() => {
+        setLoginNotice('');
+        setUser(null);
+      }}
+    />
+  );
 }
 
-function Dashboard({ user, config, onLogout }) {
+function Dashboard({ user, config, initialNotice = '', onLogout }) {
   const [view, setView] = useState('overview');
   const [date, setDate] = useState(config.today);
   const [kind, setKind] = useState('daily');
@@ -92,7 +111,7 @@ function Dashboard({ user, config, onLogout }) {
   const [busyDelete, setBusyDelete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState(initialNotice);
   const formRef = useRef(null);
   const dialogRef = useRef(null);
 

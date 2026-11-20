@@ -6,7 +6,7 @@ A private glucose journal built with **React, Node.js, Express and PostgreSQL**.
 
 ## Features
 
-- Registration and a separate login, with the `bcrypt` package for password hashing (cost 12). Successful signup shows "Sign up successful! Please log in to continue." and returns to the login form; it does not create a session or open the dashboard.
+- Registration and a separate login, with the `bcrypt` package for password hashing (cost 12). Successful signup shows "Sign up successful! Please log in to continue." and returns to the login form; it does not create a session or open the dashboard. A successful login opens the dashboard and shows "Login successful!" for five seconds.
 - Shared email-format validation in the React form and API accepts common personal and company addresses, including dots, digits and underscores. Email syntax validation does not verify mailbox ownership or deliverability.
 - Opaque, revocable seven-day sessions in HttpOnly cookies. Only session token hashes are stored in PostgreSQL.
 - Each account can access only its own readings and reports.
