@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Check, Pencil, X } from 'lucide-react';
 import { SLOTS, validateReading } from '../../../shared/domain.js';
 
@@ -15,8 +15,14 @@ export default function ReadingForm({
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    if (!reading && !dirty)
+      setForm((old) => (old.slot === initialSlot ? old : { ...old, slot: initialSlot }));
+  }, [initialSlot, reading, dirty]);
   const update = (event) => {
     const { name, value } = event.target;
+    setDirty(true);
     setForm((old) => ({ ...old, [name]: value }));
     setErrors((old) => ({ ...old, [name]: undefined }));
     setMessage('');
@@ -30,7 +36,10 @@ export default function ReadingForm({
     setMessage('');
     try {
       await onSave({ date: form.date, slot: form.slot, value: Number(form.value) }, reading?.id);
-      if (!reading) setForm((old) => ({ ...old, value: '' }));
+      if (!reading) {
+        setForm((old) => ({ ...old, value: '' }));
+        setDirty(false);
+      }
     } catch (error) {
       setErrors(error.fields || {});
       setMessage(error.message);

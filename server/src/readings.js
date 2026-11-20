@@ -54,7 +54,7 @@ export function readingsRouter(pool, config) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      // Serialize changes by account. The SQL unique constraint is the final guard.
+      // Serialize creates and updates by account. The SQL unique constraint is the final guard.
       await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [req.user.id]);
       if (editing) {
         const owned = await client.query('SELECT id FROM readings WHERE id=$1 AND user_id=$2', [
@@ -84,6 +84,8 @@ export function readingsRouter(pool, config) {
             `INSERT INTO readings(id,user_id,date,slot,value) VALUES ($1,$2,$3,$4,$5) RETURNING ${columns}`,
             [id, req.user.id, input.date, input.slot, Number(input.value)],
           );
+      // A concurrent delete can commit after the ownership check above.
+      if (editing && !result.rowCount) throw new HttpError(404, 'Reading not found.');
       await client.query('COMMIT');
       res.status(editing ? 200 : 201).json({ reading: result.rows[0] });
     } catch (error) {

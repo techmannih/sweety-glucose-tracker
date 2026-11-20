@@ -285,6 +285,67 @@ test('four slots enforce the daily maximum; concurrent duplicates produce exactl
   assert.equal((await agent.get('/api/readings')).body.total, 4);
 });
 
+test('an update returns 404 if a concurrent delete commits after its ownership check', async () => {
+  const { agent, cookie } = await account();
+  const created = await agent.post('/api/readings').set(headers).send(reading()).expect(201);
+  const id = created.body.reading.id;
+  let announce, resume;
+  const selected = new Promise((resolve) => {
+    announce = resolve;
+  });
+  const released = new Promise((resolve) => {
+    resume = resolve;
+  });
+  // Delay execution between real PostgreSQL queries, without mocking their results.
+  const controlledPool = {
+    query: pool.query.bind(pool),
+    connect: async () => {
+      const client = await pool.connect();
+      return {
+        release: () => client.release(),
+        query: async (sql, params) => {
+          const result = await client.query(sql, params);
+          if (sql === 'SELECT id FROM readings WHERE id=$1 AND user_id=$2' && params[0] === id) {
+            announce();
+            await released;
+          }
+          return result;
+        },
+      };
+    },
+  };
+  const controlledApp = createApp(controlledPool, config, { limitAuth: false });
+  const update = request(controlledApp)
+    .put(`/api/readings/${id}`)
+    .set(headers)
+    .set('Cookie', cookie)
+    .send(reading('morning', 200))
+    .then((response) => response);
+  let timer;
+  try {
+    await Promise.race([
+      selected,
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Update did not reach the ownership check.')),
+          5000,
+        );
+      }),
+    ]);
+    await agent.delete(`/api/readings/${id}`).set(headers).expect(204);
+  } finally {
+    clearTimeout(timer);
+    resume();
+  }
+  const response = await update;
+  assert.equal(response.status, 404);
+  assert.deepEqual(response.body, { message: 'Reading not found.' });
+  assert.equal((await pool.query('SELECT id FROM readings WHERE id=$1', [id])).rowCount, 0);
+  const report = await agent.get('/api/reports?date=2024-10-15').expect(200);
+  assert.equal(report.body.stats.count, 0);
+  await agent.post('/api/readings').set(headers).send(reading('morning', 150)).expect(201);
+});
+
 test('editing into an occupied slot fails and preserves the original reading', async () => {
   const { agent } = await account();
   const first = await agent.post('/api/readings').set(headers).send(reading()).expect(201);

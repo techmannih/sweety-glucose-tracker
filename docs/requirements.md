@@ -1,6 +1,6 @@
 # Assessment requirement audit
 
-Checked against the supplied Sweety assignment on 19 November 2026; updated for the requested signup behavior on 20 November 2026. This distinguishes implementation completeness from the external submission steps.
+Checked against the supplied Sweety assignment on 19 November 2026; updated for the requested signup behavior and negative-review fixes on 20 November 2026. This distinguishes implementation completeness from the external submission steps.
 
 ## Required application behavior
 
@@ -32,6 +32,14 @@ Checked against the supplied Sweety assignment on 19 November 2026; updated for 
 - **bcrypt:** password hashes use the `bcrypt` package with cost 12. Passwords are never stored as plain text.
 
 The API and React form tests cover each refinement.
+
+## Negative-review corrections
+
+- Failed requests have a separate unavailable state; previous-date readings and false empty states are not presented as the selected report. Retry and successful empty periods have regression tests.
+- Background loading and retries preserve entered reading drafts. Automatic suggestions update untouched forms, and successful saves still reset them.
+- Concurrent deletion followed by an update returns 404 instead of an empty success response. A real PostgreSQL concurrency regression test covers this ordering.
+
+The standard suite now has 48 passing tests. The separate original negative-review harness also passes all 16 groups after these corrections; see [verification.md](verification.md) for the scope and limits.
 
 ## Required submission materials
 

@@ -1,13 +1,25 @@
 # Verification
 
-Original browser verification: 19 November 2026, macOS arm64 and the Codex in-app Chromium browser. Latest signup-flow verification: 20 November 2026, using Node 26.7.0, Node 24.22.3, React Testing Library and real PostgreSQL 18.6 integration tests.
+Original browser verification: 19 November 2026, macOS arm64 and the Codex in-app Chromium browser. Latest negative-review fixes verified on 20 November 2026, using Node 24.22.3, React Testing Library and real PostgreSQL 18.6 integration tests. The earlier signup changes were also checked on Node 26.7.0.
 
 ## Automated checks
 
-- `npm test`: 18 server/domain tests and 19 React Testing Library tests pass (37 total), on both Node 26 and the recommended Node 24.
+- The standard test suite passes: 19 server/domain tests and 29 React Testing Library tests (48 total), on the recommended Node 24. The server and client commands were run separately after these fixes; `npm test` runs those same commands.
 - `npm run build`: production React build succeeds.
 - npm dependency audit: zero known vulnerabilities in the installed lockfile at verification time.
 - The server tests create and drop an isolated temporary PostgreSQL database. These are real SQL integration tests, not database mocks.
+
+## Negative-review fixes (20 November 2026)
+
+All three reported defects have regression coverage in the repository:
+
+- A failed report request now shows an unavailable state and retry. The dashboard only renders data belonging to the current date, period, page and refresh. An initial failure no longer claims that the date or history is empty. Successful zero-row responses still show the normal empty state.
+- Reading drafts survive report completion and retry. Automatic slot suggestions apply only to an untouched form. Successful saves and explicit edit/cancel actions still reset the form as intended.
+- An edit whose reading was deleted after its ownership check returns 404. A deterministic real-PostgreSQL test commits the deletion before resuming the update, verifies the missing row and empty report, and checks that another save still succeeds.
+
+The original independent negative-review harness was rerun against a separate copy of the fixes: all 10 API groups and 6 React groups passed. This includes all four assertions that failed during the original review. Across 98 rejected reading operations, database rows and all three report responses remained unchanged. The earlier review and its logs remain historical evidence for the pre-fix commit.
+
+The local preview and proxied health endpoint both returned HTTP 200 after the changes. The new failure, delay, retry and draft interactions were checked with React Testing Library/jsdom, not a new browser automation run. No new browser screenshots are claimed.
 
 ## Signup and email update (20 November 2026)
 

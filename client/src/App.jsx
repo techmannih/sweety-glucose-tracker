@@ -100,24 +100,27 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
   const [view, setView] = useState('overview');
   const [date, setDate] = useState(config.today);
   const [kind, setKind] = useState('daily');
-  const [report, setReport] = useState(null);
-  const [daily, setDaily] = useState(null);
-  const [trend, setTrend] = useState(null);
-  const [history, setHistory] = useState(null);
+  const [reports, setReports] = useState(null);
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
+  const [formReset, setFormReset] = useState(0);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [busyDelete, setBusyDelete] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(initialNotice);
   const formRef = useRef(null);
   const dialogRef = useRef(null);
+  const requestKey = `${date}-${kind}-${page}-${revision}`;
+  const current = reports?.key === requestKey ? reports : null;
+  const loading = !current || current.status === 'loading';
+  const available = current?.status === 'success';
+  const { report, daily, trend, history } = available ? current : {};
+  const message = current?.status === 'error' ? current.error : error;
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
+    setReports({ key: requestKey, status: 'loading' });
     setError('');
     const query = (reportKind) =>
       api(`/reports?kind=${reportKind}&date=${date}`, { signal: controller.signal });
@@ -130,20 +133,15 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
       api(`/readings?page=${page}&limit=12`, { signal: controller.signal }),
     ])
       .then(([report, daily, trend, history]) => {
-        setReport(report);
-        setDaily(daily);
-        setTrend(trend);
-        setHistory(history);
+        if (controller.signal.aborted) return;
+        setReports({ key: requestKey, status: 'success', report, daily, trend, history });
         if (page > 1 && history.readings.length === 0) setPage(page - 1);
       })
       .catch((error) => {
-        if (error.name !== 'AbortError') {
+        if (!controller.signal.aborted && error.name !== 'AbortError') {
           if (error.status === 401) onLogout();
-          else setError(error.message);
+          else setReports({ key: requestKey, status: 'error', error: error.message });
         }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
   }, [date, kind, page, revision]);
@@ -164,6 +162,7 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
       throw error;
     }
     setEditing(null);
+    setFormReset((reset) => reset + 1);
     setDate(body.date);
     setRevision((r) => r + 1);
     setNotice(id ? 'Reading updated.' : 'Reading saved. A little check-in, complete.');
@@ -221,7 +220,7 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
       </div>
     );
   }
-  const count = daily?.stats.count || 0;
+  const count = daily?.stats.count;
   const nextSlot =
     SLOTS.find((slot) => !daily?.readings.some((r) => r.slot === slot.value))?.value || 'morning';
   return (
@@ -310,9 +309,9 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
             {notice}
           </div>
         )}
-        {error && (
+        {message && (
           <div className="alert retry-alert" role="alert">
-            {error}
+            {message}
             <button className="text-button" onClick={() => setRevision(revision + 1)}>
               Try again
             </button>
@@ -332,7 +331,7 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
               <div className="rhythm-progress">
                 <div className="progress-title">
                   <strong>
-                    {loading ? '…' : count}
+                    {loading ? '…' : available ? count : '—'}
                     <span> / 4</span>
                   </strong>
                   <span>
@@ -382,8 +381,9 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
               <p className="report-range">
                 {loading
                   ? 'Loading report…'
-                  : report &&
-                    `${displayDate(report.start)}${report.start !== report.end ? ` – ${displayDate(report.end)}` : ''}`}
+                  : available
+                    ? `${displayDate(report.start)}${report.start !== report.end ? ` – ${displayDate(report.end)}` : ''}`
+                    : 'Report unavailable'}
               </p>
               <div className="stats-grid" aria-busy={loading}>
                 {[
@@ -421,9 +421,13 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
                 <div className="panel-title">
                   <h2>{kind === 'daily' ? 'The daily check-in' : 'Readings over time'}</h2>
                   <span className="pill">
-                    {kind === 'daily'
-                      ? `${count} of 4 recorded`
-                      : `${report?.stats.count || 0} readings`}
+                    {loading
+                      ? 'Loading…'
+                      : !available
+                        ? 'Unavailable'
+                        : kind === 'daily'
+                          ? `${count} of 4 recorded`
+                          : `${report.stats.count} readings`}
                   </span>
                 </div>
                 <p className="muted">
@@ -435,6 +439,8 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
                   <div className="empty" role="status">
                     Loading your readings…
                   </div>
+                ) : !available ? (
+                  <div className="empty">Unable to load readings. Please try again.</div>
                 ) : kind === 'daily' ? (
                   <>
                     {count === 0 && (
@@ -495,14 +501,18 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
               <section className="panel history-panel">
                 <div className="panel-title">
                   <h2>Reading history</h2>
-                  <span className="pill">{history?.total || 0} readings</span>
+                  <span className="pill">
+                    {loading ? 'Loading…' : available ? `${history.total} readings` : 'Unavailable'}
+                  </span>
                 </div>
                 <p className="muted">All dates · Most recent first</p>
                 {loading ? (
                   <div className="empty" role="status">
                     Loading your readings…
                   </div>
-                ) : !history?.readings.length ? (
+                ) : !available ? (
+                  <div className="empty">Unable to load history. Please try again.</div>
+                ) : !history.readings.length ? (
                   <div className="empty">
                     <Droplet size={30} />
                     <p>Your journal is ready.</p>
@@ -577,6 +587,8 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
                 </p>
                 {loading ? (
                   <div className="empty">Loading your trend…</div>
+                ) : !available ? (
+                  <div className="empty">Unable to load your trend. Please try again.</div>
                 ) : (
                   <TrendChart readings={trend?.readings || []} />
                 )}
@@ -585,7 +597,7 @@ function Dashboard({ user, config, initialNotice = '', onLogout }) {
           </div>
           <div ref={formRef}>
             <ReadingForm
-              key={`${editing?.id || editing?.slot || 'new'}-${date}-${revision}-${nextSlot}`}
+              key={`${editing?.id || editing?.slot || 'new'}-${date}-${formReset}`}
               initialSlot={nextSlot}
               today={config.today}
               selectedDate={date}

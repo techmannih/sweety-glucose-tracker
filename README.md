@@ -13,6 +13,7 @@ A private glucose journal built with **React, Node.js, Express and PostgreSQL**.
 - Create, view, edit and delete readings in four fixed slots: Morning (fasting), After breakfast, After lunch and After dinner.
 - Clear form and API validation: required whole-number glucose values from 40 to 600 mg/dl, valid dates that are not in the future, and one reading per slot per date.
 - Highest, lowest, average to one decimal place and count for all three reports; daily readings include their slot. Empty periods have a friendly empty state and no invented statistics.
+- Failed report requests show an unavailable state with retry. Loading and retrying reports preserve an entered reading draft; successful saves reset it.
 - Bonus features: paginated reading history, a monthly line chart, Docker Compose, and React Testing Library tests.
 
 ## Quick start without Docker
@@ -132,8 +133,9 @@ The tests cover:
 - Daily, month-to-date and previous-month aggregates, boundary inclusivity, leap years, January rollover, rounding and empty reports.
 - Pagination, slot order and date filters.
 - Form errors, successful submission, server error handling and editing/cancel behavior.
+- Failed and retried reports, genuine empty periods, draft preservation during loading, login/account switching, and concurrent edit/delete handling.
 
-Verification performed in this workspace: **18 server/domain tests and 19 frontend tests passed**, production Vite build succeeded, and npm audit reported **0 vulnerabilities** at the time of verification. Browser verification and screenshots are described in [docs/verification.md](docs/verification.md). Docker was not installed on the verification host, so the Compose workflow is provided but was not run here.
+Verification performed in this workspace: **19 server/domain tests and 29 frontend tests passed** on Node 24. The production Vite build succeeded, and npm audit reported **0 vulnerabilities** at the time of review. All 16 checks from the separate negative-review harness also pass after the fixes. Browser verification, regression coverage and limitations are described in [docs/verification.md](docs/verification.md). Docker was not installed on the verification host, so the Compose workflow is provided but was not run here.
 
 ## Environment variables
 
@@ -191,7 +193,7 @@ docs/                Verification notes and actual browser screenshots
 - The brief says MERN + PostgreSQL but explicitly requests PostgreSQL; this app uses PostgreSQL and does not add MongoDB.
 - Readings store calendar dates, not measurement timestamps. An app-wide configurable timezone determines today. Browser config is fetched on page load; refresh a long-running tab after midnight.
 - The earliest accepted date is 1 January 1900. Future readings and future report-selection dates are rejected. The four slots describe the patient's chosen category; no clock-time enforcement is assumed.
-- Four allowed slot values plus `UNIQUE(user_id, date, slot)` make a fifth reading impossible. Per-user row locks make conflict checks consistent across concurrent writes. A duplicate-slot error takes precedence if both the daily maximum and slot uniqueness apply.
+- Four allowed slot values plus `UNIQUE(user_id, date, slot)` make a fifth reading impossible. Per-user row locks serialize creates and edits. An update returns 404 if a concurrent deletion removes its reading before the update can write. A duplicate-slot error takes precedence if both the daily maximum and slot uniqueness apply.
 - Statistics include recorded values only. No-data averages/min/max are `null`; the UI shows a dash, while the count is zero. The UI formats averages with exactly one decimal.
 - All seed data is fictional. The chart simply plots saved values in chronological slot order; it does not assign clinical targets, diagnoses or medication guidance.
 - Authentication uses server-side sessions instead of JWTs so logout immediately revokes access. Cookies are HttpOnly and SameSite=Lax; writes additionally require a matching Origin header. Login/registration are rate limited to 30 requests per 15 minutes per IP.
