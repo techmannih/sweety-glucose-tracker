@@ -1,10 +1,11 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import App from './App.jsx';
 import { api } from './api.js';
 
 vi.mock('./api.js', () => ({ api: vi.fn() }));
+afterEach(() => vi.useRealTimers());
 const A = { id: 'user-a', name: 'Reviewer A', email: 'usera@example.com' };
 const B = { id: 'user-b', name: 'Reviewer B', email: 'userb@example.com' };
 const today = '2026-10-15';
@@ -123,7 +124,7 @@ test('rejected save retains user input and creates no success notice', async () 
   expect(screen.getByLabelText('Time slot')).toHaveAttribute('aria-invalid', 'true');
 });
 
-test('explicit login shows success; logout and next account clear the previous private readings', async () => {
+test('login success stays on the login screen for three seconds; account switching clears private readings', async () => {
   currentUser = null;
   render(<App />);
   const user = userEvent.setup();
@@ -131,9 +132,28 @@ test('explicit login shows success; logout and next account clear the previous p
     await screen.findByLabelText('Email address');
     await user.type(screen.getByLabelText('Email address'), account.email);
     await user.type(screen.getByLabelText('Password'), 'ReviewPassword123!');
-    await user.click(screen.getByRole('button', { name: 'Log in', exact: true }));
-    await screen.findByRole('button', { name: oldEditLabel });
+    vi.useFakeTimers();
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('button', { name: 'Log in', exact: true }).closest('form'));
+    });
     expect(screen.getByText('Login successful!')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Good to see you.' })).toBeVisible();
+    expect(
+      screen.queryByRole('heading', { name: 'Your day, at a glance.' }),
+    ).not.toBeInTheDocument();
+    await act(async () => {
+      vi.advanceTimersByTime(2999);
+    });
+    expect(screen.getByText('Login successful!')).toBeVisible();
+    expect(
+      screen.queryByRole('heading', { name: 'Your day, at a glance.' }),
+    ).not.toBeInTheDocument();
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+    vi.useRealTimers();
+    await screen.findByRole('button', { name: oldEditLabel });
+    expect(screen.queryByText('Login successful!')).not.toBeInTheDocument();
   }
   await login(A);
   expect(document.querySelector('.reading-number strong').textContent).toBe('231');

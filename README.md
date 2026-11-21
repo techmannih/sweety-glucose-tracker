@@ -6,14 +6,14 @@ A private glucose journal built with **React, Node.js, Express and PostgreSQL**.
 
 ## Features
 
-- Registration and a separate login, with the `bcrypt` package for password hashing (cost 12). Successful signup shows "Sign up successful! Please log in to continue." and returns to the login form; it does not create a session or open the dashboard. A successful login opens the dashboard and shows "Login successful!" for five seconds.
+- Registration and a separate login, with the `bcrypt` package for password hashing (cost 12). Successful signup shows "Sign up successful! Please log in to continue." and returns to the login form; it does not create a session or open the dashboard. A successful login shows "Login successful!" on the login screen for three seconds, then clears the message and opens the dashboard.
 - Shared email-format validation in the React form and API accepts common personal and company addresses, including dots, digits and underscores. Email syntax validation does not verify mailbox ownership or deliverability.
 - Opaque, revocable seven-day sessions in HttpOnly cookies. Only session token hashes are stored in PostgreSQL.
 - Each account can access only its own readings and reports.
 - Create, view, edit and delete readings in four fixed slots: Morning (fasting), After breakfast, After lunch and After dinner.
 - Clear form and API validation: required whole-number glucose values from 40 to 600 mg/dl, valid dates that are not in the future, and one reading per slot per date.
 - Highest, lowest, average to one decimal place and count for all three reports; daily readings include their slot. Empty periods have a friendly empty state and no invented statistics.
-- Failed report requests show an unavailable state with retry. Loading and retrying reports preserve an entered reading draft; successful saves reset it.
+- Failed report requests show an unavailable state with retry. Loading and retrying reports preserve an entered reading draft; successful saves reset it. Reading-form errors and save/update/delete notices clear after three seconds without erasing an entered draft.
 - Bonus features: paginated reading history, a monthly line chart, Docker Compose, and React Testing Library tests.
 
 ## Quick start without Docker
@@ -135,7 +135,7 @@ The tests cover:
 - Form errors, successful submission, server error handling and editing/cancel behavior.
 - Failed and retried reports, genuine empty periods, draft preservation during loading, login/account switching, and concurrent edit/delete handling.
 
-Verification performed in this workspace: **19 server/domain tests and 29 frontend tests passed** on Node 24. The production Vite build succeeded, and npm audit reported **0 vulnerabilities** at the time of review. All 16 checks from the separate negative-review harness also pass after the fixes. Browser verification, regression coverage and limitations are described in [docs/verification.md](docs/verification.md). Docker was not installed on the verification host, so the Compose workflow is provided but was not run here.
+Verification performed in this workspace: **33 frontend tests passed** for the latest message-timing change on Node 24, including the three-second boundary and delayed login transition. The 19 server/domain tests last passed on 20 November; no server code changed in this refinement. The production Vite build succeeded, and npm audit reported **0 vulnerabilities** at the time of review. The earlier negative-review fixes passed all 16 checks in the separate review harness on 20 November. Browser verification, regression coverage and limitations are described in [docs/verification.md](docs/verification.md). Docker was not installed on the verification host, so the Compose workflow is provided but was not run here.
 
 ## Environment variables
 
@@ -218,6 +218,8 @@ All screenshots use the fictional seeded account:
 - [Paginated history](docs/screenshots/04-history.jpg)
 - [Mobile layout](docs/screenshots/05-mobile.jpg)
 - [Empty report](docs/screenshots/06-empty-state.jpg)
+- [Login success before opening the dashboard](docs/screenshots/07-login-success.jpg)
+- [Reading draft after the error clears](docs/screenshots/08-message-cleared.jpg)
 
 ## Submission
 

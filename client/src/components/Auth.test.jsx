@@ -1,12 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Auth from './Auth.jsx';
 import { api } from '../api.js';
 import { SIGNUP_SUCCESS_MESSAGE } from '../../../shared/auth.js';
 
 vi.mock('../api.js', () => ({ api: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
+afterEach(() => vi.useRealTimers());
 
 async function fillSignup(email) {
   const user = userEvent.setup();
@@ -15,6 +16,12 @@ async function fillSignup(email) {
   await user.type(screen.getByLabelText('Email address'), email);
   await user.type(screen.getByLabelText('Password'), 'TestPassword123!');
   return user;
+}
+
+async function submitLogin() {
+  await act(async () => {
+    fireEvent.submit(screen.getByRole('button', { name: 'Log in', exact: true }).closest('form'));
+  });
 }
 
 describe('Sign up and login', () => {
@@ -42,7 +49,7 @@ describe('Sign up and login', () => {
     expect(screen.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
   });
 
-  test('opens the dashboard only after the user submits a separate successful login', async () => {
+  test('shows login success for three seconds before opening the dashboard after separate login', async () => {
     const onLogin = vi.fn();
     const account = { id: 'account-id', name: 'Manish', email: 'alex@example.com' };
     api
@@ -51,15 +58,71 @@ describe('Sign up and login', () => {
     render(<Auth onLogin={onLogin} />);
     const user = await fillSignup(account.email);
     await user.click(screen.getByRole('button', { name: 'Create account', exact: true }));
-    await screen.findByRole('status');
+    expect(screen.getByRole('status')).toHaveTextContent(SIGNUP_SUCCESS_MESSAGE);
     expect(onLogin).not.toHaveBeenCalled();
-    await user.type(screen.getByLabelText('Password'), 'TestPassword123!');
-    await user.click(screen.getByRole('button', { name: 'Log in', exact: true }));
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'TestPassword123!' } });
+    vi.useFakeTimers();
+    await submitLogin();
     expect(api).toHaveBeenLastCalledWith('/auth/login', {
       method: 'POST',
       body: { name: '', email: account.email, password: 'TestPassword123!' },
     });
+    expect(screen.getByRole('status')).toHaveTextContent('Login successful!');
+    expect(screen.getByRole('heading', { name: 'Good to see you.' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Opening your journal…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Create an account', exact: true })).toBeDisabled();
+    expect(screen.getByLabelText('Email address')).toBeDisabled();
+    expect(screen.getByLabelText('Password')).toHaveValue('');
+    expect(onLogin).not.toHaveBeenCalled();
+    await act(async () => {
+      vi.advanceTimersByTime(2999);
+    });
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Login successful!');
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
     expect(onLogin).toHaveBeenCalledExactlyOnceWith(account);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  test('cancels the pending login transition when the login screen unmounts', async () => {
+    vi.useFakeTimers();
+    const onLogin = vi.fn();
+    api.mockResolvedValue({
+      user: { id: 'account-id', name: 'Manish', email: 'alex@example.com' },
+    });
+    const { unmount } = render(<Auth onLogin={onLogin} />);
+    fireEvent.change(screen.getByLabelText('Email address'), {
+      target: { value: 'alex@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'TestPassword123!' } });
+    await submitLogin();
+    expect(screen.getByRole('status')).toHaveTextContent('Login successful!');
+    unmount();
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(onLogin).not.toHaveBeenCalled();
+  });
+
+  test('a rejected login never schedules a dashboard transition', async () => {
+    vi.useFakeTimers();
+    const onLogin = vi.fn();
+    api.mockRejectedValue(new Error('Email or password is incorrect.'));
+    render(<Auth onLogin={onLogin} />);
+    fireEvent.change(screen.getByLabelText('Email address'), {
+      target: { value: 'alex@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'IncorrectPassword' } });
+    await submitLogin();
+    expect(screen.getByRole('alert')).toHaveTextContent('Email or password is incorrect.');
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(screen.queryByText('Login successful!')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Log in', exact: true })).toBeEnabled();
   });
 
   test.each([

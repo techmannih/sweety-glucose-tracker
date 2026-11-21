@@ -20,6 +20,14 @@ export default function ReadingForm({
     if (!reading && !dirty)
       setForm((old) => (old.slot === initialSlot ? old : { ...old, slot: initialSlot }));
   }, [initialSlot, reading, dirty]);
+  useEffect(() => {
+    if (!message && !Object.values(errors).some(Boolean)) return;
+    const timer = setTimeout(() => {
+      setErrors({});
+      setMessage('');
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [errors, message]);
   const update = (event) => {
     const { name, value } = event.target;
     setDirty(true);

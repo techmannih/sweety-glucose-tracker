@@ -1,13 +1,22 @@
 # Verification
 
-Original browser verification: 19 November 2026, macOS arm64 and the Codex in-app Chromium browser. Latest negative-review fixes verified on 20 November 2026, using Node 24.22.3, React Testing Library and real PostgreSQL 18.6 integration tests. The earlier signup changes were also checked on Node 26.7.0.
+Original browser verification: 19 November 2026, macOS arm64 and the Codex in-app Chromium browser. Message timing and the delayed login transition were verified on 21 November 2026 using Node 24.22.3, React Testing Library and a real browser. Negative-review fixes were verified on 20 November with real PostgreSQL 18.6 integration tests. The earlier signup changes were also checked on Node 26.7.0.
 
 ## Automated checks
 
-- The standard test suite passes: 19 server/domain tests and 29 React Testing Library tests (48 total), on the recommended Node 24. The server and client commands were run separately after these fixes; `npm test` runs those same commands.
+- Latest frontend run: all 33 React Testing Library tests passed on Node 24 (21 November). The unchanged server/domain suite last passed all 19 tests on 20 November. The current repository suite contains 52 tests; `npm test` runs both commands.
 - `npm run build`: production React build succeeds.
 - npm dependency audit: zero known vulnerabilities in the installed lockfile at verification time.
 - The server tests create and drop an isolated temporary PostgreSQL database. These are real SQL integration tests, not database mocks.
+
+## Message timing and login transition (21 November 2026)
+
+- A successful login displays "Login successful!" on the login screen for three seconds. The message clears before the dashboard opens. Inputs and account switching are disabled during the transition; repeated submissions cannot start another login.
+- Reading-form validation and server error messages, including both duplicate-slot messages and red highlighting, clear after three seconds. The entered value and chosen slot stay intact. Submitting an invalid draft again still validates it, and a fresh failure gets a fresh timeout.
+- Reading save/update/delete success notices also clear after three seconds. Report-loading failures keep their unavailable/retry state.
+- Timer tests assert the state at 2,999 ms and 3,000 ms, check cancellation on unmount and verify that a rejected login never navigates.
+- Browser verification used the fictional demo account on a temporary local preview at `127.0.0.1:3002`, leaving the existing localhost account alone. Login success appeared on the login screen; the dashboard then appeared without that message. A duplicate After breakfast attempt for 18 November displayed both errors, then cleared both while retaining `456`, the slot and a non-highlighted field. No reading was created by the rejected request.
+- Actual screenshots: [login success](screenshots/07-login-success.jpg) and [preserved draft after errors clear](screenshots/08-message-cleared.jpg). The temporary preview was stopped after verification.
 
 ## Negative-review fixes (20 November 2026)
 

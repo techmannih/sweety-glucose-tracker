@@ -1,6 +1,6 @@
 # Assessment requirement audit
 
-Checked against the supplied Sweety assignment on 19 November 2026; updated for the requested signup behavior and negative-review fixes on 20 November 2026. This distinguishes implementation completeness from the external submission steps.
+Checked against the supplied Sweety assignment on 19 November 2026; updated for signup, negative-review fixes and message timing through 21 November 2026. This distinguishes implementation completeness from the external submission steps.
 
 ## Required application behavior
 
@@ -28,7 +28,7 @@ Checked against the supplied Sweety assignment on 19 November 2026; updated for 
 
 - **Valid email formats:** common personal/company addresses, including all five supplied examples, are accepted. Invalid formats show a field error in the UI and are rejected by the API. Format validation does not verify that a mailbox exists.
 - **No automatic login after signup:** the account is saved, a success message is shown, and the form switches to login with the email retained and password cleared. No session or cookie is issued at registration.
-- **Separate login:** only a successful login creates the session and opens the dashboard, with a "Login successful!" message.
+- **Separate login:** a successful login creates the session and shows "Login successful!" on the login screen for three seconds; the message clears before the dashboard opens. Reading-form errors also dismiss after three seconds while preserving the draft.
 - **bcrypt:** password hashes use the `bcrypt` package with cost 12. Passwords are never stored as plain text.
 
 The API and React form tests cover each refinement.
@@ -39,7 +39,7 @@ The API and React form tests cover each refinement.
 - Background loading and retries preserve entered reading drafts. Automatic suggestions update untouched forms, and successful saves still reset them.
 - Concurrent deletion followed by an update returns 404 instead of an empty success response. A real PostgreSQL concurrency regression test covers this ordering.
 
-The standard suite now has 48 passing tests. The separate original negative-review harness also passes all 16 groups after these corrections; see [verification.md](verification.md) for the scope and limits.
+The repository suite now contains 52 tests. All 33 frontend tests passed for the latest timing change; the 19 server/domain tests last passed on 20 November. The original negative-review harness passed all 16 groups for the 20 November corrections. See [verification.md](verification.md) for dates, browser evidence and limits.
 
 ## Required submission materials
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Droplet, ShieldCheck, Activity, Sprout, Check } from 'lucide-react';
 import { api } from '../api.js';
 import { normalizeEmail, SIGNUP_SUCCESS_MESSAGE, validateAuth } from '../../../shared/auth.js';
@@ -10,8 +10,20 @@ export default function Auth({ onLogin }) {
   const [success, setSuccess] = useState('');
   const [fields, setFields] = useState({});
   const [busy, setBusy] = useState(false);
+  const [pendingUser, setPendingUser] = useState(null);
+  const waiting = busy || Boolean(pendingUser);
+  useEffect(() => {
+    if (!pendingUser) return;
+    const timer = setTimeout(() => {
+      setSuccess('');
+      setPendingUser(null);
+      onLogin(pendingUser);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [pendingUser, onLogin]);
   async function submit(event) {
     event.preventDefault();
+    if (waiting) return;
     setError('');
     const errors = validateAuth(form, { register });
     setFields(errors);
@@ -28,7 +40,9 @@ export default function Auth({ onLogin }) {
         setSuccess(result.message || SIGNUP_SUCCESS_MESSAGE);
         setForm({ name: '', email: normalizeEmail(form.email), password: '' });
       } else {
-        onLogin(result.user);
+        setSuccess('Login successful!');
+        setForm((old) => ({ ...old, password: '' }));
+        setPendingUser(result.user);
       }
     } catch (error) {
       setError(error.message);
@@ -113,6 +127,7 @@ export default function Auth({ onLogin }) {
                   name="name"
                   autoComplete="name"
                   required
+                  disabled={waiting}
                   maxLength={80}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -133,6 +148,7 @@ export default function Auth({ onLogin }) {
               name="email"
               autoComplete="email"
               required
+              disabled={waiting}
               maxLength={254}
               placeholder="you@example.com"
               value={form.email}
@@ -151,6 +167,7 @@ export default function Auth({ onLogin }) {
               type="password"
               name="password"
               required
+              disabled={waiting}
               minLength={register ? 8 : undefined}
               autoComplete={register ? 'new-password' : 'current-password'}
               value={form.password}
@@ -169,15 +186,21 @@ export default function Auth({ onLogin }) {
                 {error}
               </div>
             )}
-            <button className="primary full" disabled={busy}>
-              {busy ? 'Please wait…' : register ? 'Create account' : 'Log in'}
+            <button className="primary full" disabled={waiting}>
+              {pendingUser
+                ? 'Opening your journal…'
+                : busy
+                  ? 'Please wait…'
+                  : register
+                    ? 'Create account'
+                    : 'Log in'}
             </button>
           </form>
           <p className="auth-switch">
             {register ? 'Already have an account?' : 'New to Sweety?'}{' '}
             <button
               className="text-button"
-              disabled={busy}
+              disabled={waiting}
               onClick={() => {
                 setRegister(!register);
                 setError('');
