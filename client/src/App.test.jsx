@@ -157,10 +157,19 @@ test('login success stays on the login screen for 1.5 seconds; account switching
   }
   await login(A);
   expect(document.querySelector('.reading-number strong').textContent).toBe('231');
-  await user.click(screen.getByRole('button', { name: 'Log out' }));
-  await screen.findByLabelText('Email address');
+  vi.useFakeTimers();
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+  });
+  expect(screen.getByRole('heading', { name: 'Good to see you.' })).toBeVisible();
+  expect(screen.getByRole('status')).toHaveTextContent('Logout successful!');
   expect(document.querySelector('.reading-number')).toBeNull();
   expect(screen.queryByText('Login successful!')).not.toBeInTheDocument();
+  await act(async () => {
+    vi.advanceTimersByTime(1500);
+  });
+  expect(screen.queryByText('Logout successful!')).not.toBeInTheDocument();
+  vi.useRealTimers();
   await login(B);
   expect(document.querySelector('.reading-number strong').textContent).toBe('600');
 });

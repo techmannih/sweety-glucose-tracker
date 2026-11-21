@@ -32,6 +32,7 @@ const reportKinds = [
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [logoutNotice, setLogoutNotice] = useState('');
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -73,8 +74,17 @@ export default function App() {
         </button>
       </div>
     );
-  if (!user) return <Auth onLogin={setUser} />;
-  return <Dashboard user={user} config={config} onLogout={() => setUser(null)} />;
+  if (!user) return <Auth onLogin={setUser} initialSuccess={logoutNotice} />;
+  return (
+    <Dashboard
+      user={user}
+      config={config}
+      onLogout={(message = '') => {
+        setLogoutNotice(message);
+        setUser(null);
+      }}
+    />
+  );
 }
 
 function Dashboard({ user, config, onLogout }) {
@@ -173,7 +183,7 @@ function Dashboard({ user, config, onLogout }) {
   async function logout() {
     try {
       await api('/auth/logout', { method: 'POST' });
-      onLogout();
+      onLogout('Logout successful!');
     } catch (error) {
       setError(error.message);
     }

@@ -3,22 +3,29 @@ import { Droplet, ShieldCheck, Activity, Sprout, Check } from 'lucide-react';
 import { api } from '../api.js';
 import { normalizeEmail, SIGNUP_SUCCESS_MESSAGE, validateAuth } from '../../../shared/auth.js';
 
-export default function Auth({ onLogin }) {
+const AUTH_NOTICE_MS = 1500;
+
+export default function Auth({ onLogin, initialSuccess = '' }) {
   const [register, setRegister] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [success, setSuccess] = useState(initialSuccess);
   const [fields, setFields] = useState({});
   const [busy, setBusy] = useState(false);
   const [pendingUser, setPendingUser] = useState(null);
   const waiting = busy || Boolean(pendingUser);
+  useEffect(() => {
+    if (!initialSuccess || success !== initialSuccess) return;
+    const timer = setTimeout(() => setSuccess(''), AUTH_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [initialSuccess, success]);
   useEffect(() => {
     if (!pendingUser) return;
     const timer = setTimeout(() => {
       setSuccess('');
       setPendingUser(null);
       onLogin(pendingUser);
-    }, 1500);
+    }, AUTH_NOTICE_MS);
     return () => clearTimeout(timer);
   }, [pendingUser, onLogin]);
   async function submit(event) {
