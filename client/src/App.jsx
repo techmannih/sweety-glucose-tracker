@@ -158,9 +158,9 @@ function Dashboard({ user, config, onLogout }) {
     setRevision((r) => r + 1);
     setNotice(id ? 'Reading updated.' : 'Reading saved. A little check-in, complete.');
   }
-  function edit(reading) {
+  function openReadingForm(reading) {
     setEditing(reading);
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    formRef.current?.scrollIntoView({ block: 'center' });
   }
   async function remove() {
     setBusyDelete(true);
@@ -196,7 +196,7 @@ function Dashboard({ user, config, onLogout }) {
           className="icon-button"
           title="Edit reading"
           aria-label={`Edit ${label}`}
-          onClick={() => edit(reading)}
+          onClick={() => openReadingForm(reading)}
         >
           <Pencil size={16} />
         </button>
@@ -265,7 +265,7 @@ function Dashboard({ user, config, onLogout }) {
       </aside>
       <main className="main" id="main">
         <header className="topbar">
-          <div>
+          <div className="topbar-copy" key={view}>
             <span className="eyebrow">YOUR GLUCOSE JOURNAL</span>
             <h1>
               {view === 'overview' ? 'Your day, at a glance.' : 'Every reading, in one place.'}
@@ -468,13 +468,9 @@ function Dashboard({ user, config, onLogout }) {
                               <button
                                 className="icon-button add-slot"
                                 aria-label={`Add ${slot.label}`}
-                                onClick={() => {
-                                  setEditing({ date, slot: slot.value, value: '' });
-                                  formRef.current?.scrollIntoView({
-                                    behavior: 'smooth',
-                                    block: 'center',
-                                  });
-                                }}
+                                onClick={() =>
+                                  openReadingForm({ date, slot: slot.value, value: '' })
+                                }
                               >
                                 <Plus size={18} />
                               </button>

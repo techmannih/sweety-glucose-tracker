@@ -7,10 +7,14 @@
   font-synthesis: none;
   font-size: 16px;
   line-height: 1.5;
+  scroll-behavior: smooth;
   --green: #173f35;
   --muted: #64756d;
   --border: #e4eae5;
   --lime: #d3eeaa;
+  --motion-interaction: 160ms;
+  --motion-enter: 240ms;
+  --motion-ease: cubic-bezier(0.2, 0.7, 0.25, 1);
 }
 * {
   box-sizing: border-box;
@@ -32,8 +36,11 @@ select {
 button {
   cursor: pointer;
   transition:
-    background 0.15s,
-    box-shadow 0.15s;
+    background-color var(--motion-interaction) ease-out,
+    color var(--motion-interaction) ease-out,
+    border-color var(--motion-interaction) ease-out,
+    box-shadow var(--motion-interaction) ease-out,
+    transform var(--motion-interaction) var(--motion-ease);
 }
 button:disabled {
   cursor: not-allowed;
@@ -430,6 +437,10 @@ a {
   border: 1px solid #ffffff20;
   border-radius: 50%;
   position: relative;
+  transition:
+    background-color var(--motion-enter) ease-out,
+    border-color var(--motion-enter) ease-out,
+    color var(--motion-enter) ease-out;
 }
 .slot-progress .complete > span {
   background: #d0eea5;
@@ -737,6 +748,7 @@ select {
   min-height: 43px;
   font-size: 0.875rem;
   line-height: 1.5;
+  transition: border-color var(--motion-interaction) ease-out;
 }
 input::placeholder {
   color: #9da694;
@@ -1481,9 +1493,54 @@ td {
     display: block;
   }
 }
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+  .auth-form-inner,
+  .topbar-copy,
+  .rhythm-card,
+  .form-panel,
+  .toast,
+  .alert,
+  .field-error,
+  .delete-dialog[open] {
+    animation: settle-in var(--motion-enter) var(--motion-ease);
+  }
+  .reading-list,
+  .table-wrap,
+  .chart-wrap,
+  .empty-inline,
+  .stats-grid[aria-busy='false'] .stat-card strong,
+  .delete-dialog[open]::backdrop {
+    animation: soften-in var(--motion-enter) var(--motion-ease);
+  }
+}
+@keyframes settle-in {
+  from {
+    opacity: 0.65;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes soften-in {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  * {
-    scroll-behavior: auto !important;
+  :root {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
     transition: none !important;
   }
 }
