@@ -18,7 +18,7 @@ export default function Auth({ onLogin }) {
       setSuccess('');
       setPendingUser(null);
       onLogin(pendingUser);
-    }, 3000);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [pendingUser, onLogin]);
   async function submit(event) {

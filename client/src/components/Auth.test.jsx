@@ -49,7 +49,7 @@ describe('Sign up and login', () => {
     expect(screen.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
   });
 
-  test('shows login success for three seconds before opening the dashboard after separate login', async () => {
+  test('shows login success for 1.5 seconds before opening the dashboard after separate login', async () => {
     const onLogin = vi.fn();
     const account = { id: 'account-id', name: 'Manish', email: 'alex@example.com' };
     api
@@ -75,7 +75,7 @@ describe('Sign up and login', () => {
     expect(screen.getByLabelText('Password')).toHaveValue('');
     expect(onLogin).not.toHaveBeenCalled();
     await act(async () => {
-      vi.advanceTimersByTime(2999);
+      vi.advanceTimersByTime(1499);
     });
     expect(onLogin).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent('Login successful!');

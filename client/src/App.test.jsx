@@ -124,7 +124,7 @@ test('rejected save retains user input and creates no success notice', async () 
   expect(screen.getByLabelText('Time slot')).toHaveAttribute('aria-invalid', 'true');
 });
 
-test('login success stays on the login screen for three seconds; account switching clears private readings', async () => {
+test('login success stays on the login screen for 1.5 seconds; account switching clears private readings', async () => {
   currentUser = null;
   render(<App />);
   const user = userEvent.setup();
@@ -142,7 +142,7 @@ test('login success stays on the login screen for three seconds; account switchi
       screen.queryByRole('heading', { name: 'Your day, at a glance.' }),
     ).not.toBeInTheDocument();
     await act(async () => {
-      vi.advanceTimersByTime(2999);
+      vi.advanceTimersByTime(1499);
     });
     expect(screen.getByText('Login successful!')).toBeVisible();
     expect(
@@ -254,14 +254,14 @@ test('a pristine form follows the next free slot and a successful save resets it
   });
   render(<App />);
   await screen.findByRole('button', { name: oldEditLabel });
-  expect(screen.getByLabelText('Time slot')).toHaveValue('after_breakfast');
+  await waitFor(() => expect(screen.getByLabelText('Time slot')).toHaveValue('after_breakfast'));
   const user = userEvent.setup();
   await user.type(screen.getByLabelText('Glucose value'), '145');
   await user.click(screen.getByRole('button', { name: 'Save reading' }));
   await screen.findByText('2 of 4 recorded');
   expect(screen.getByText('Reading saved. A little check-in, complete.')).toBeVisible();
   expect(screen.getByLabelText('Glucose value')).toHaveValue('');
-  expect(screen.getByLabelText('Time slot')).toHaveValue('after_lunch');
+  await waitFor(() => expect(screen.getByLabelText('Time slot')).toHaveValue('after_lunch'));
   expect(saved).toMatchObject({ date: today, slot: 'after_breakfast', value: 145 });
 });
 

@@ -11,10 +11,10 @@ Original browser verification: 19 November 2026, macOS arm64 and the Codex in-ap
 
 ## Message timing and login transition (21 November 2026)
 
-- A successful login displays "Login successful!" on the login screen for three seconds. The message clears before the dashboard opens. Inputs and account switching are disabled during the transition; repeated submissions cannot start another login.
+- A successful login displays "Login successful!" on the login screen for 1.5 seconds. The message clears before the dashboard opens. Inputs and account switching are disabled during the transition; repeated submissions cannot start another login.
 - Reading-form validation and server error messages, including both duplicate-slot messages and red highlighting, clear after three seconds. The entered value and chosen slot stay intact. Submitting an invalid draft again still validates it, and a fresh failure gets a fresh timeout.
 - Reading save/update/delete success notices also clear after three seconds. Report-loading failures keep their unavailable/retry state.
-- Timer tests assert the state at 2,999 ms and 3,000 ms, check cancellation on unmount and verify that a rejected login never navigates.
+- Timer tests assert login behavior at 1,499 ms and 1,500 ms and reading-feedback behavior at 2,999 ms and 3,000 ms, check cancellation on unmount and verify that a rejected login never navigates. The login delay was shortened from three seconds to 1.5 seconds after the initial browser check; the updated interval was verified with the automated tests.
 - Browser verification used the fictional demo account on a temporary local preview at `127.0.0.1:3002`, leaving the existing localhost account alone. Login success appeared on the login screen; the dashboard then appeared without that message. A duplicate After breakfast attempt for 18 November displayed both errors, then cleared both while retaining `456`, the slot and a non-highlighted field. No reading was created by the rejected request.
 - Actual screenshots: [login success](screenshots/07-login-success.jpg) and [preserved draft after errors clear](screenshots/08-message-cleared.jpg). The temporary preview was stopped after verification.
 

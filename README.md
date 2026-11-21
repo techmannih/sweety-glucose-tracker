@@ -6,7 +6,7 @@ A private glucose journal built with **React, Node.js, Express and PostgreSQL**.
 
 ## Features
 
-- Registration and a separate login, with the `bcrypt` package for password hashing (cost 12). Successful signup shows "Sign up successful! Please log in to continue." and returns to the login form; it does not create a session or open the dashboard. A successful login shows "Login successful!" on the login screen for three seconds, then clears the message and opens the dashboard.
+- Registration and a separate login, with the `bcrypt` package for password hashing (cost 12). Successful signup shows "Sign up successful! Please log in to continue." and returns to the login form; it does not create a session or open the dashboard. A successful login shows "Login successful!" on the login screen for 1.5 seconds, then clears the message and opens the dashboard.
 - Shared email-format validation in the React form and API accepts common personal and company addresses, including dots, digits and underscores. Email syntax validation does not verify mailbox ownership or deliverability.
 - Opaque, revocable seven-day sessions in HttpOnly cookies. Only session token hashes are stored in PostgreSQL.
 - Each account can access only its own readings and reports.
@@ -135,7 +135,7 @@ The tests cover:
 - Form errors, successful submission, server error handling and editing/cancel behavior.
 - Failed and retried reports, genuine empty periods, draft preservation during loading, login/account switching, and concurrent edit/delete handling.
 
-Verification performed in this workspace: **33 frontend tests passed** for the latest message-timing change on Node 24, including the three-second boundary and delayed login transition. The 19 server/domain tests last passed on 20 November; no server code changed in this refinement. The production Vite build succeeded, and npm audit reported **0 vulnerabilities** at the time of review. The earlier negative-review fixes passed all 16 checks in the separate review harness on 20 November. Browser verification, regression coverage and limitations are described in [docs/verification.md](docs/verification.md). Docker was not installed on the verification host, so the Compose workflow is provided but was not run here.
+Verification performed in this workspace: **33 frontend tests passed** for the latest message-timing change on Node 24, including the three-second reading-feedback boundary and 1.5-second login transition. The 19 server/domain tests last passed on 20 November; no server code changed in this refinement. The production Vite build succeeded, and npm audit reported **0 vulnerabilities** at the time of review. The earlier negative-review fixes passed all 16 checks in the separate review harness on 20 November. Browser verification, regression coverage and limitations are described in [docs/verification.md](docs/verification.md). Docker was not installed on the verification host, so the Compose workflow is provided but was not run here.
 
 ## Environment variables
 
