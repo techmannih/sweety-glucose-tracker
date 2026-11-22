@@ -133,9 +133,9 @@ The tests cover:
 - Daily, month-to-date and previous-month aggregates, boundary inclusivity, leap years, January rollover, rounding and empty reports.
 - Pagination, slot order and date filters.
 - Form errors, successful submission, server error handling and editing/cancel behavior.
-- Failed and retried reports, genuine empty periods, draft preservation during loading, login/account switching, and concurrent edit/delete handling.
+- Failed and retried reports, genuine empty periods, pending-save controls, draft preservation, login/account switching, and concurrent edit/delete handling.
 
-Verification performed in this workspace: **33 frontend tests passed** for the latest message-timing change on Node 24, including the three-second reading-feedback boundary and 1.5-second login transition. The 19 server/domain tests last passed on 20 November; no server code changed in this refinement. The production Vite build succeeded, and npm audit reported **0 vulnerabilities** at the time of review. The earlier negative-review fixes passed all 16 checks in the separate review harness on 20 November. Browser verification, regression coverage and limitations are described in [docs/verification.md](docs/verification.md). Docker was not installed on the verification host, so the Compose workflow is provided but was not run here.
+All **56 tests** passed on Node 24 for the 22 November review fixes, along with the production Vite build and formatting check. Browser verification, regression coverage and limitations are described in [docs/verification.md](docs/verification.md). Docker was unavailable on the verification host, so Compose runtime verification is pending.
 
 ## Environment variables
 

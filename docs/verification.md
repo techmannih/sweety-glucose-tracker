@@ -4,10 +4,12 @@ Original browser verification: 19 November 2026, macOS arm64 and the Codex in-ap
 
 ## Automated checks
 
-- Latest frontend run: all 33 React Testing Library tests passed on Node 24 (21 November). The unchanged server/domain suite last passed all 19 tests on 20 November. The current repository suite contains 52 tests; `npm test` runs both commands.
+- All 56 tests passed on Node 24 on 22 November: 21 server/domain and 35 frontend tests. `npm test` runs both suites.
 - `npm run build`: production React build succeeds.
 - npm dependency audit: zero known vulnerabilities in the installed lockfile at verification time.
 - The server tests create and drop an isolated temporary PostgreSQL database. These are real SQL integration tests, not database mocks.
+
+The 22 November regression tests cover pending creates and edits, recovery after a rejected save, editing a reading on a full day, unchanged data after invalid updates, and report queries with unknown or repeated parameters.
 
 ## Message timing and login transition (21 November 2026)
 

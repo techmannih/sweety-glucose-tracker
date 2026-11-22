@@ -6,6 +6,8 @@ import { SLOT_ORDER } from './readings.js';
 export function reportsRouter(pool, config) {
   const router = Router();
   router.get('/', async (req, res) => {
+    if (Object.keys(req.query).some((key) => !['kind', 'date'].includes(key)))
+      throw new HttpError(400, 'Supported report query parameters are kind and date.');
     const { kind = 'daily', date = todayInZone(config.timeZone) } = req.query;
     if (!validDate(date) || date > todayInZone(config.timeZone))
       throw new HttpError(400, 'Select a valid date that is not in the future.');

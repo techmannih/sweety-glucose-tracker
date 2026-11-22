@@ -39,7 +39,10 @@ The API and React form tests cover each refinement.
 - Background loading and retries preserve entered reading drafts. Automatic suggestions update untouched forms, and successful saves still reset them.
 - Concurrent deletion followed by an update returns 404 instead of an empty success response. A real PostgreSQL concurrency regression test covers this ordering.
 
-The repository suite now contains 52 tests. All 33 frontend tests passed for the latest timing change; the 19 server/domain tests last passed on 20 November. The original negative-review harness passed all 16 groups for the 20 November corrections. See [verification.md](verification.md) for dates, browser evidence and limits.
+- Pending saves temporarily disable form fields and controls that replace the draft. Failed saves restore editing with the submitted value intact.
+- Reports return `400` for unsupported query parameters. API tests also cover editing a full day and confirm that rejected updates leave the stored reading unchanged.
+
+All 56 repository tests passed for the 22 November review fixes. See [verification.md](verification.md) for regression coverage and limits.
 
 ## Required submission materials
 

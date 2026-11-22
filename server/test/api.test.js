@@ -285,6 +285,37 @@ test('four slots enforce the daily maximum; concurrent duplicates produce exactl
   assert.equal((await agent.get('/api/readings')).body.total, 4);
 });
 
+test('a reading can be edited on a full day, but invalid updates leave it unchanged', async () => {
+  const { agent } = await account();
+  const created = await agent.post('/api/readings').set(headers).send(reading()).expect(201);
+  for (const slot of ['after_breakfast', 'after_lunch', 'after_dinner'])
+    await agent.post('/api/readings').set(headers).send(reading(slot)).expect(201);
+
+  const { id, date, slot } = created.body.reading;
+  const updated = await agent
+    .put(`/api/readings/${id}`)
+    .set(headers)
+    .send({ date, slot, value: 145 })
+    .expect(200);
+  assert.deepEqual(updated.body.reading, { id, date, slot, value: 145 });
+
+  for (const invalid of [{ value: 145.5 }, { value: 601 }, { date: '2099-01-01' }]) {
+    const response = await agent
+      .put(`/api/readings/${id}`)
+      .set(headers)
+      .send({ date, slot, value: 145, ...invalid })
+      .expect(400);
+    assert.ok(response.body.fields[Object.keys(invalid)[0]]);
+  }
+
+  const { body: list } = await agent.get(`/api/readings?date=${date}`).expect(200);
+  assert.equal(list.total, 4);
+  assert.deepEqual(
+    list.readings.find((item) => item.id === id),
+    updated.body.reading,
+  );
+});
+
 test('an update returns 404 if a concurrent delete commits after its ownership check', async () => {
   const { agent, cookie } = await account();
   const created = await agent.post('/api/readings').set(headers).send(reading()).expect(201);
@@ -408,6 +439,20 @@ test('empty reports return null statistics and zero count, and invalid report qu
   await agent.get('/api/reports?kind=weekly').expect(400);
   await agent.get('/api/reports?date=2099-01-01').expect(400);
   await agent.get('/api/reports?date=2024-02-30').expect(400);
+});
+
+test('reports reject unsupported and non-scalar query parameters without using defaults', async () => {
+  const { agent } = await account();
+  for (const query of ['limit=20', 'kind=monthly&date[]=2024-10-15', 'kind[]=daily']) {
+    const { body } = await agent.get(`/api/reports?${query}`).expect(400);
+    assert.equal(body.message, 'Supported report query parameters are kind and date.');
+  }
+  for (const query of ['date=2024-10-15&date=2024-10-16', 'kind=daily&kind=monthly']) {
+    await agent.get(`/api/reports?${query}`).expect(400);
+  }
+  const { body } = await agent.get('/api/reports').expect(200);
+  assert.equal(body.kind, 'daily');
+  assert.equal(body.start, body.end);
 });
 
 test('pagination has deterministic slot order, counts, date filters, and validated bounds', async () => {
