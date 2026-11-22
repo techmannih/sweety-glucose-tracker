@@ -23,6 +23,23 @@ function report(path, value = currentUser?.id === 'user-b' ? 600 : 231) {
     readings: [{ id: `${currentUser?.id}-${date}`, date, slot: 'morning', value }],
   };
 }
+
+function delaySave(method) {
+  const handler = api.getMockImplementation();
+  let resolve, reject;
+  const pending = new Promise((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  const save = vi.fn(() => pending);
+  api.mockImplementation((path, options) =>
+    path.startsWith('/readings') && options?.method === method
+      ? save(path, options)
+      : handler(path, options),
+  );
+  return { save, resolve, reject };
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal(
@@ -122,6 +139,73 @@ test('rejected save retains user input and creates no success notice', async () 
   expect(screen.getByLabelText('Glucose value')).toHaveValue('145');
   expect(screen.queryByText(/Reading saved/)).not.toBeInTheDocument();
   expect(screen.getByLabelText('Time slot')).toHaveAttribute('aria-invalid', 'true');
+});
+
+test('a pending create prevents editing the submitted draft until the request succeeds', async () => {
+  const pending = delaySave('POST');
+  render(<App />);
+  await screen.findByRole('button', { name: oldEditLabel });
+  const user = userEvent.setup();
+  const value = screen.getByLabelText('Glucose value');
+  await user.selectOptions(screen.getByLabelText('Time slot'), 'after_lunch');
+  await user.type(value, '120');
+  await user.click(screen.getByRole('button', { name: 'Save reading' }));
+
+  expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+  expect(screen.getByLabelText('Date', { exact: true })).toBeDisabled();
+  expect(screen.getByLabelText('Time slot')).toBeDisabled();
+  expect(value).toBeDisabled();
+  await user.type(value, '180');
+  expect(value).toHaveValue('120');
+  expect(pending.save).toHaveBeenCalledExactlyOnceWith('/readings', {
+    method: 'POST',
+    body: { date: today, slot: 'after_lunch', value: 120 },
+  });
+
+  await act(async () => {
+    pending.resolve({ reading: { id: 'created', date: today, slot: 'after_lunch', value: 120 } });
+  });
+  expect(screen.getByText(/Reading saved/)).toBeVisible();
+  expect(screen.getByLabelText('Glucose value')).toBeEnabled();
+  expect(screen.getByLabelText('Glucose value')).toHaveValue('');
+});
+
+test('an outstanding edit blocks cancel and replacement and keeps its value when the save fails', async () => {
+  const pending = delaySave('PUT');
+  render(<App />);
+  const edit = await screen.findByRole('button', { name: oldEditLabel });
+  const user = userEvent.setup();
+  await user.click(edit);
+  const value = screen.getByLabelText('Glucose value');
+  await user.clear(value);
+  await user.type(value, '120');
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+  const cancel = screen.getByRole('button', { name: 'Cancel', exact: true });
+  const add = screen.getByRole('button', { name: 'Add After lunch' });
+  expect(cancel).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Cancel edit' })).toBeDisabled();
+  expect(edit).toBeDisabled();
+  expect(add).toBeDisabled();
+  expect(screen.getByLabelText('Selected date')).toBeDisabled();
+  await user.click(cancel);
+  await user.click(add);
+  expect(screen.getByRole('heading', { name: 'Edit reading' })).toBeVisible();
+  expect(screen.getByLabelText('Glucose value')).toHaveValue('120');
+
+  await act(async () => {
+    pending.reject(new Error('Save unavailable. Please try again.'));
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent('Save unavailable. Please try again.');
+  expect(value).toBeEnabled();
+  expect(value).toHaveValue('120');
+  expect(cancel).toBeEnabled();
+  expect(add).toBeEnabled();
+  expect(screen.queryByText('Reading updated.')).not.toBeInTheDocument();
+  await user.click(cancel);
+  await user.click(add);
+  await user.type(screen.getByLabelText('Glucose value'), '180');
+  expect(screen.getByLabelText('Glucose value')).toHaveValue('180');
 });
 
 test('login success stays on the login screen for 1.5 seconds; account switching clears private readings', async () => {

@@ -97,6 +97,7 @@ function Dashboard({ user, config, onLogout }) {
   const [revision, setRevision] = useState(0);
   const [formReset, setFormReset] = useState(0);
   const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [busyDelete, setBusyDelete] = useState(false);
   const [error, setError] = useState('');
@@ -147,17 +148,22 @@ function Dashboard({ user, config, onLogout }) {
   }, [deleting]);
 
   async function saveReading(body, id) {
+    setSaving(true);
     try {
       await api(id ? `/readings/${id}` : '/readings', { method: id ? 'PUT' : 'POST', body });
+      setEditing(null);
+      setFormReset((reset) => reset + 1);
+      setDate(body.date);
+      setRevision((r) => r + 1);
+      setNotice({
+        message: id ? 'Reading updated.' : 'Reading saved. A little check-in, complete.',
+      });
     } catch (error) {
       if (error.status === 401) onLogout();
       throw error;
+    } finally {
+      setSaving(false);
     }
-    setEditing(null);
-    setFormReset((reset) => reset + 1);
-    setDate(body.date);
-    setRevision((r) => r + 1);
-    setNotice({ message: id ? 'Reading updated.' : 'Reading saved. A little check-in, complete.' });
   }
   function openReadingForm(reading) {
     setEditing(reading);
@@ -197,6 +203,7 @@ function Dashboard({ user, config, onLogout }) {
           className="icon-button"
           title="Edit reading"
           aria-label={`Edit ${label}`}
+          disabled={saving}
           onClick={() => openReadingForm(reading)}
         >
           <Pencil size={16} />
@@ -205,6 +212,7 @@ function Dashboard({ user, config, onLogout }) {
           className="icon-button danger"
           title="Delete reading"
           aria-label={`Delete ${label}`}
+          disabled={saving}
           onClick={() => setDeleting(reading)}
         >
           <Trash2 size={16} />
@@ -286,6 +294,7 @@ function Dashboard({ user, config, onLogout }) {
               min="1900-01-01"
               max={config.today}
               value={date}
+              disabled={saving}
               onChange={(e) => {
                 if (e.target.value && e.target.validity.valid) {
                   setDate(e.target.value);
@@ -464,6 +473,7 @@ function Dashboard({ user, config, onLogout }) {
                               <button
                                 className="icon-button add-slot"
                                 aria-label={`Add ${slot.label}`}
+                                disabled={saving}
                                 onClick={() =>
                                   openReadingForm({ date, slot: slot.value, value: '' })
                                 }
@@ -585,6 +595,7 @@ function Dashboard({ user, config, onLogout }) {
               today={config.today}
               selectedDate={date}
               reading={editing}
+              saving={saving}
               onSave={saveReading}
               onCancel={() => setEditing(null)}
             />
