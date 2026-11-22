@@ -553,6 +553,7 @@ a {
 }
 .content-left {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 22px;
   min-width: 0;
 }
@@ -1492,6 +1493,13 @@ td {
   .table-wrap {
     margin-left: -8px;
     margin-right: -8px;
+  }
+  .history-panel th,
+  .history-panel td {
+    padding-inline: 5px;
+  }
+  .history-panel td:nth-child(2) {
+    white-space: normal;
   }
   .dialog-actions {
     flex-wrap: wrap;

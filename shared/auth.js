@@ -1,6 +1,7 @@
 import isEmail from 'validator/lib/isEmail.js';
 
 export const SIGNUP_SUCCESS_MESSAGE = 'Sign up successful! Please log in to continue.';
+export const ACCOUNT_HEADER = 'X-Sweety-Account';
 
 export function normalizeEmail(email) {
   return typeof email === 'string' ? email.trim().toLowerCase() : '';

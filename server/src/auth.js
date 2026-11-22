@@ -3,10 +3,16 @@ import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { rateLimit } from 'express-rate-limit';
 import { HttpError } from './errors.js';
-import { normalizeEmail, SIGNUP_SUCCESS_MESSAGE, validateAuth } from '../../shared/auth.js';
+import {
+  ACCOUNT_HEADER,
+  normalizeEmail,
+  SIGNUP_SUCCESS_MESSAGE,
+  validateAuth,
+} from '../../shared/auth.js';
 
 const COOKIE = 'sweety_session';
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const accountChanged = () => new HttpError(401, 'Your active account has changed.');
 const digest = (token) => createHash('sha256').update(token).digest('hex');
 // Keep unknown-email and incorrect-password paths on the same bcrypt work factor.
 const dummyHash = bcrypt.hashSync('unused-login-timing-value', 12);
@@ -37,6 +43,8 @@ export function requireUser(pool) {
       [digest(token)],
     );
     if (!rows.length) throw new HttpError(401, 'Your session has expired. Please log in again.');
+    const expectedAccount = req.get(ACCOUNT_HEADER);
+    if (expectedAccount !== undefined && expectedAccount !== rows[0].id) throw accountChanged();
     req.user = rows[0];
     next();
   };
@@ -107,8 +115,14 @@ export function authRouter(pool, config, limitAuth = true) {
   });
   router.post('/logout', async (req, res) => {
     const token = req.cookies[COOKIE];
-    if (token && /^[a-f0-9]{64}$/.test(token))
-      await pool.query('DELETE FROM sessions WHERE token_hash=$1', [digest(token)]);
+    const expectedAccount = req.get(ACCOUNT_HEADER);
+    if (token && /^[a-f0-9]{64}$/.test(token)) {
+      const result = await pool.query(
+        'DELETE FROM sessions WHERE token_hash=$1 AND ($2::text IS NULL OR user_id::text=$2)',
+        [digest(token), expectedAccount ?? null],
+      );
+      if (expectedAccount !== undefined && !result.rowCount) throw accountChanged();
+    }
     res.clearCookie(COOKIE, cookieOptions(config)).status(204).end();
   });
   router.get('/me', requireUser(pool), (req, res) => res.json({ user: req.user }));

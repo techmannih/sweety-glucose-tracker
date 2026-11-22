@@ -3,13 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import App from './App.jsx';
 import { api } from './api.js';
+import { SESSION_CHANGE_KEY } from './session.js';
+import { ACCOUNT_HEADER } from '../../shared/auth.js';
 
 vi.mock('./api.js', () => ({ api: vi.fn() }));
 afterEach(() => vi.useRealTimers());
 const A = { id: 'user-a', name: 'Reviewer A', email: 'usera@example.com' };
 const B = { id: 'user-b', name: 'Reviewer B', email: 'userb@example.com' };
 const today = '2026-10-15';
-let currentUser, failReports, pendingReports, failSave;
+let currentUser, failReports, pendingReports, failSave, failHistory;
 const oldEditLabel = 'Edit Morning (fasting) on 15 Oct 2026';
 function report(path, value = currentUser?.id === 'user-b' ? 600 : 231) {
   const url = new URL(path, 'http://localhost');
@@ -50,10 +52,14 @@ beforeEach(() => {
     },
   );
   Element.prototype.scrollIntoView = vi.fn();
+  HTMLDialogElement.prototype.showModal ??= function () {
+    this.open = true;
+  };
   currentUser = A;
   failReports = false;
   pendingReports = null;
   failSave = false;
+  failHistory = false;
   api.mockImplementation(async (path, options = {}) => {
     if (path === '/config') return { today, timeZone: 'Asia/Kolkata' };
     if (path === '/auth/me') {
@@ -64,6 +70,11 @@ beforeEach(() => {
       currentUser = options.body.email === A.email ? A : B;
       return { user: currentUser };
     }
+    if (
+      (path.startsWith('/reports') || path.startsWith('/readings') || path === '/auth/logout') &&
+      options.headers?.[ACCOUNT_HEADER] !== currentUser?.id
+    )
+      throw Object.assign(new Error('Your active account has changed.'), { status: 401 });
     if (path === '/auth/logout') {
       currentUser = null;
       return null;
@@ -76,8 +87,11 @@ beforeEach(() => {
         });
       return { reading: { ...options.body, id: 'created' } };
     }
-    if (path.startsWith('/readings?'))
+    if (path.startsWith('/readings?')) {
+      if (failHistory)
+        throw Object.assign(new Error('History unavailable. Please try again.'), { status: 503 });
       return { readings: report('/reports').readings, total: 1, page: 1, limit: 12 };
+    }
     if (path.startsWith('/reports?')) {
       if (failReports)
         throw Object.assign(new Error('Report unavailable. Please try again.'), { status: 500 });
@@ -160,6 +174,7 @@ test('a pending create prevents editing the submitted draft until the request su
   expect(pending.save).toHaveBeenCalledExactlyOnceWith('/readings', {
     method: 'POST',
     body: { date: today, slot: 'after_lunch', value: 120 },
+    headers: { [ACCOUNT_HEADER]: A.id },
   });
 
   await act(async () => {
@@ -262,6 +277,109 @@ test('login success stays on the login screen for 1.5 seconds; account switching
   expect(document.querySelector('.reading-number strong').textContent).toBe('600');
 });
 
+test('another tab signing in clears the old account and its draft before showing the new report', async () => {
+  const { container } = render(<App />);
+  await screen.findByRole('button', { name: oldEditLabel });
+  fireEvent.change(screen.getByLabelText('Glucose value'), { target: { value: '145' } });
+  expect(screen.getByText('Reviewer A')).toBeVisible();
+  expect(container.querySelector('.reading-number strong')).toHaveTextContent('231');
+
+  let finishCheck;
+  const handler = api.getMockImplementation();
+  api.mockImplementation((path, options) =>
+    path === '/auth/me'
+      ? new Promise((resolve) => {
+          finishCheck = resolve;
+        })
+      : handler(path, options),
+  );
+  currentUser = B;
+  await act(async () => {
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: SESSION_CHANGE_KEY, newValue: 'new-session' }),
+    );
+  });
+  expect(screen.queryByText('Reviewer A')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Glucose value')).not.toBeInTheDocument();
+  expect(container.querySelector('.reading-number')).toBeNull();
+
+  await act(async () => {
+    finishCheck({ user: B });
+  });
+  await screen.findByRole('button', { name: oldEditLabel });
+  expect(screen.getByText('Reviewer B')).toBeVisible();
+  expect(container.querySelector('.reading-number strong')).toHaveTextContent('600');
+  expect(screen.getByLabelText('Glucose value')).toHaveValue('');
+  expect(api).toHaveBeenCalledWith(
+    `/reports?kind=daily&date=${today}`,
+    expect.objectContaining({ headers: { [ACCOUNT_HEADER]: B.id } }),
+  );
+});
+
+test('refocusing a tab rechecks the session and preserves the draft when the account matches', async () => {
+  render(<App />);
+  await screen.findByRole('button', { name: oldEditLabel });
+  fireEvent.change(screen.getByLabelText('Glucose value'), { target: { value: '145' } });
+  const checks = () => api.mock.calls.filter(([path]) => path === '/auth/me').length;
+  const previousChecks = checks();
+  await act(async () => {
+    fireEvent.focus(window);
+  });
+  expect(checks()).toBe(previousChecks + 1);
+  expect(screen.getByText('Reviewer A')).toBeVisible();
+  expect(screen.getByLabelText('Glucose value')).toHaveValue('145');
+
+  currentUser = B;
+  await act(async () => {
+    fireEvent.focus(window);
+  });
+  expect(await screen.findByText('Reviewer B')).toBeVisible();
+  expect(screen.queryByText('Reviewer A')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Glucose value')).toHaveValue('');
+});
+
+test('retries a failed delete only after reopening and confirming the deletion', async () => {
+  const handler = api.getMockImplementation();
+  let deleted = false;
+  const remove = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('Delete failed.'))
+    .mockImplementation(async () => {
+      deleted = true;
+      return null;
+    });
+  api.mockImplementation((path, options) => {
+    if (options?.method === 'DELETE') return remove(path, options);
+    if (deleted && path.startsWith('/reports?'))
+      return Promise.resolve({
+        ...report(path),
+        readings: [],
+        stats: { count: 0, highest: null, lowest: null, average: null },
+      });
+    return handler(path, options);
+  });
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole('button', { name: 'Delete Morning (fasting) on 15 Oct 2026' }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Delete reading', exact: true }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Delete failed.');
+  expect(screen.getByRole('button', { name: oldEditLabel })).toBeVisible();
+  expect(screen.queryByText('Reading deleted.')).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Retry delete' }));
+  expect(screen.getByRole('dialog')).toBeVisible();
+  expect(remove).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole('button', { name: 'Delete reading', exact: true }));
+  expect(await screen.findByText('Reading deleted.')).toBeVisible();
+  expect(remove).toHaveBeenCalledTimes(2);
+  expect(
+    await screen.findByText('A fresh page. Add your first reading for this date.'),
+  ).toBeVisible();
+  expect(screen.queryByRole('button', { name: oldEditLabel })).not.toBeInTheDocument();
+});
+
 test('an aborted old date request does not replace the latest selected date', async () => {
   render(<App />);
   await screen.findByRole('button', { name: oldEditLabel });
@@ -287,24 +405,47 @@ test('an aborted old date request does not replace the latest selected date', as
   expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-13');
 });
 
-test('retry recovers history and reports without erasing an unsaved draft', async () => {
+test('history stays usable when reports fail and reloading reports preserves the draft', async () => {
   failReports = true;
   render(<App />);
   await screen.findByRole('alert');
   const user = userEvent.setup();
   await user.type(screen.getByLabelText('Glucose value'), '145');
   await user.click(screen.getByRole('button', { name: 'Reading history' }));
-  expect(screen.getByText('Unable to load history. Please try again.')).toBeVisible();
-  expect(screen.queryByText('Your journal is ready.')).not.toBeInTheDocument();
-  expect(screen.queryByRole('table')).not.toBeInTheDocument();
-  failReports = false;
-  await user.click(screen.getByRole('button', { name: 'Try again' }));
   await screen.findByRole('table');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Overview' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Report unavailable.');
+  failReports = false;
+  await user.click(screen.getByRole('button', { name: 'Reload reports' }));
+  await screen.findByRole('button', { name: oldEditLabel });
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(screen.getByLabelText('Glucose value')).toHaveValue('145');
   expect(screen.getByLabelText('Time slot')).toHaveValue('morning');
+});
+
+test('a history failure leaves the daily count, average and slots visible on overview', async () => {
+  failHistory = true;
+  render(<App />);
+  await screen.findByRole('button', { name: oldEditLabel });
+  expect(screen.getByText('231.0')).toBeVisible();
+  expect(screen.getByText('1 of 4 recorded')).toBeVisible();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Reading history' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('History unavailable.');
+  expect(screen.getByText('Unable to load history. Please try again.')).toBeVisible();
+  expect(screen.queryByText('Your journal is ready.')).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Overview' }));
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByText('231.0')).toBeVisible();
+  expect(screen.getByText('1 of 4 recorded')).toBeVisible();
   expect(screen.getByRole('button', { name: oldEditLabel })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Reading history' }));
+  await screen.findByRole('alert');
+  failHistory = false;
+  await user.click(screen.getByRole('button', { name: 'Reload history' }));
+  await screen.findByRole('table');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
 test('a successful zero-row response still shows genuine empty reports and history', async () => {

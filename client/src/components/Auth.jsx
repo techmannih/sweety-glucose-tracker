@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Droplet, ShieldCheck, Activity, Sprout } from 'lucide-react';
 import { api } from '../api.js';
+import { announceSessionChange } from '../session.js';
 import { normalizeEmail, SIGNUP_SUCCESS_MESSAGE, validateAuth } from '../../../shared/auth.js';
 import SuccessToast, { SUCCESS_TOAST_MS } from './SuccessToast.jsx';
 
@@ -48,6 +49,7 @@ export default function Auth({ onLogin, initialSuccess = '' }) {
         setSuccess(result.message || SIGNUP_SUCCESS_MESSAGE);
         setForm({ name: '', email: normalizeEmail(form.email), password: '' });
       } else {
+        announceSessionChange();
         setSuccess('Login successful!');
         setForm((old) => ({ ...old, password: '' }));
         setPendingUser(result.user);
