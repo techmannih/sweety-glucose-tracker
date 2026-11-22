@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Droplet, ShieldCheck, Activity, Sprout, Check } from 'lucide-react';
+import { Droplet, ShieldCheck, Activity, Sprout } from 'lucide-react';
 import { api } from '../api.js';
 import { normalizeEmail, SIGNUP_SUCCESS_MESSAGE, validateAuth } from '../../../shared/auth.js';
+import SuccessToast, { SUCCESS_TOAST_MS } from './SuccessToast.jsx';
 
 const LOGIN_NOTICE_MS = 1500;
-const LOGOUT_NOTICE_MS = 3000;
 
 export default function Auth({ onLogin, initialSuccess = '' }) {
   const [register, setRegister] = useState(false);
@@ -15,12 +15,11 @@ export default function Auth({ onLogin, initialSuccess = '' }) {
   const [busy, setBusy] = useState(false);
   const [pendingUser, setPendingUser] = useState(null);
   const waiting = busy || Boolean(pendingUser);
-  const showingLogoutNotice = Boolean(initialSuccess && success === initialSuccess);
   useEffect(() => {
-    if (!showingLogoutNotice) return;
-    const timer = setTimeout(() => setSuccess(''), LOGOUT_NOTICE_MS);
+    if (!success || pendingUser) return;
+    const timer = setTimeout(() => setSuccess(''), SUCCESS_TOAST_MS);
     return () => clearTimeout(timer);
-  }, [showingLogoutNotice]);
+  }, [success, pendingUser]);
   useEffect(() => {
     if (!pendingUser) return;
     const timer = setTimeout(() => {
@@ -60,15 +59,9 @@ export default function Auth({ onLogin, initialSuccess = '' }) {
       setBusy(false);
     }
   }
-  const successNotice = success && (
-    <div className={`toast ${showingLogoutNotice ? 'logout-toast' : 'auth-success'}`} role="status">
-      <Check size={18} aria-hidden="true" />
-      <span>{success}</span>
-    </div>
-  );
   return (
     <main className="auth-layout">
-      {showingLogoutNotice && successNotice}
+      <SuccessToast message={success} />
       <section className="auth-story">
         <a className="brand" href="/">
           <span className="brand-icon">
@@ -128,7 +121,6 @@ export default function Auth({ onLogin, initialSuccess = '' }) {
               ? 'Create an account to begin recording your readings.'
               : 'Log in and pick up where you left off.'}
           </p>
-          {!showingLogoutNotice && successNotice}
           <form onSubmit={submit} noValidate>
             {register && (
               <>

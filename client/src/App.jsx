@@ -20,6 +20,7 @@ import {
 import { api } from './api.js';
 import Auth from './components/Auth.jsx';
 import ReadingForm from './components/ReadingForm.jsx';
+import SuccessToast, { SUCCESS_TOAST_MS } from './components/SuccessToast.jsx';
 import TrendChart from './components/TrendChart.jsx';
 import { displayDate, SLOTS } from '../../shared/domain.js';
 
@@ -99,7 +100,7 @@ function Dashboard({ user, config, onLogout }) {
   const [deleting, setDeleting] = useState(null);
   const [busyDelete, setBusyDelete] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState(null);
   const formRef = useRef(null);
   const dialogRef = useRef(null);
   const requestKey = `${date}-${kind}-${page}-${revision}`;
@@ -138,7 +139,7 @@ function Dashboard({ user, config, onLogout }) {
   }, [date, kind, page, revision]);
   useEffect(() => {
     if (!notice) return;
-    const timer = setTimeout(() => setNotice(''), 3000);
+    const timer = setTimeout(() => setNotice(null), SUCCESS_TOAST_MS);
     return () => clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
@@ -156,7 +157,7 @@ function Dashboard({ user, config, onLogout }) {
     setFormReset((reset) => reset + 1);
     setDate(body.date);
     setRevision((r) => r + 1);
-    setNotice(id ? 'Reading updated.' : 'Reading saved. A little check-in, complete.');
+    setNotice({ message: id ? 'Reading updated.' : 'Reading saved. A little check-in, complete.' });
   }
   function openReadingForm(reading) {
     setEditing(reading);
@@ -169,7 +170,7 @@ function Dashboard({ user, config, onLogout }) {
       if (editing?.id === deleting.id) setEditing(null);
       setDeleting(null);
       setRevision((r) => r + 1);
-      setNotice('Reading deleted.');
+      setNotice({ message: 'Reading deleted.' });
     } catch (error) {
       if (error.status === 401) onLogout();
       else {
@@ -216,6 +217,7 @@ function Dashboard({ user, config, onLogout }) {
     SLOTS.find((slot) => !daily?.readings.some((r) => r.slot === slot.value))?.value || 'morning';
   return (
     <div className="app-layout">
+      <SuccessToast message={notice?.message} />
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -294,12 +296,6 @@ function Dashboard({ user, config, onLogout }) {
             <span>{config.timeZone}</span>
           </div>
         </header>
-        {notice && (
-          <div className="toast" role="status">
-            <Check size={18} />
-            {notice}
-          </div>
-        )}
         {message && (
           <div className="alert retry-alert" role="alert">
             {message}

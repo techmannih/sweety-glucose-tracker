@@ -813,7 +813,16 @@ select {
   align-items: center;
   margin: 0 0 20px;
 }
-.toast {
+.success-toast {
+  position: fixed;
+  z-index: 21;
+  top: max(16px, env(safe-area-inset-top));
+  inset-inline: 16px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  box-shadow: 0 5px 20px #173f3526;
+  pointer-events: none;
   background: #e5f0dc;
   color: #36572e;
   border: 1px solid #d1e3c4;
@@ -822,8 +831,10 @@ select {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 20px;
   font-size: 0.875rem;
+}
+.success-toast svg {
+  flex-shrink: 0;
 }
 .main-footer {
   display: flex;
@@ -1051,22 +1062,6 @@ td {
 }
 .auth-form-inner .primary {
   margin-top: 26px;
-}
-.auth-success {
-  margin-top: 20px;
-  margin-bottom: 0;
-  align-items: flex-start;
-}
-.logout-toast {
-  position: fixed;
-  z-index: 21;
-  top: max(16px, env(safe-area-inset-top));
-  inset-inline: 16px;
-  width: max-content;
-  max-width: calc(100% - 32px);
-  margin: 0 auto;
-  box-shadow: 0 5px 20px #173f3526;
-  pointer-events: none;
 }
 .auth-switch {
   font-size: 0.8125rem;
@@ -1512,7 +1507,7 @@ td {
   .topbar-copy,
   .rhythm-card,
   .form-panel,
-  .toast,
+  .success-toast,
   .alert,
   .field-error,
   .delete-dialog[open] {
