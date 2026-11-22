@@ -43,16 +43,16 @@ The repository suite now contains 52 tests. All 33 frontend tests passed for the
 
 ## Required submission materials
 
-| Requirement                                                             | Status                                                                                         |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Public GitHub repository URL                                            | **Pending publication authorization.** Local source and genuine incremental commits are ready. |
-| Regular commits, not one large commit                                   | Included in the local Git repository and ZIP.                                                  |
-| README: installation, database setup, server/client startup and tests   | Included; fresh installation, tests and build were checked with Node 24.                       |
-| `.env.example` with every setting and no real secrets                   | Included. Real `.env`, database files and dependencies are excluded from the ZIP and Git.      |
-| Demo seed script and sample readings                                    | Included; creates a fictional account and sample readings.                                     |
-| Screenshots or a short recording                                        | Six actual screenshots included. A video is not additionally required.                         |
-| Notes: assumptions and future improvements                              | Included in README.                                                                            |
-| Reply to the hiring email with the public URL and screenshots/recording | **Pending publication and explicit permission to send the email.** Nothing has been sent.      |
+| Requirement                                                             | Status                                                                                    |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Public GitHub repository URL                                            | [techmannih/sweety-glucose-tracker](https://github.com/techmannih/sweety-glucose-tracker) |
+| Regular commits, not one large commit                                   | Included in the local Git repository and ZIP.                                             |
+| README: installation, database setup, server/client startup and tests   | Included; fresh installation, tests and build were checked with Node 24.                  |
+| `.env.example` with every setting and no real secrets                   | Included. Real `.env`, database files and dependencies are excluded from the ZIP and Git. |
+| Demo seed script and sample readings                                    | Included; creates a fictional account and sample readings.                                |
+| Screenshots or a short recording                                        | Eight screenshots included.                                                               |
+| Notes: assumptions and future improvements                              | Included in README.                                                                       |
+| Reply to the hiring email with the public URL and screenshots/recording | Pending email submission.                                                                 |
 
 ## Optional bonuses
 

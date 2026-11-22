@@ -67,5 +67,5 @@ Screenshots in `docs/screenshots/` are real browser captures, not mockups. All d
 ## Limits
 
 - Docker was unavailable on this host, so the supplied Dockerfile and Compose workflow were not executed here.
-- No production service or GitHub remote was provisioned. No email was sent.
+- Verification covered local development and the built app served locally.
 - No multi-browser compatibility certification or exhaustive accessibility audit is claimed.

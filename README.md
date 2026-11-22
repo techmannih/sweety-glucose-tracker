@@ -199,7 +199,7 @@ docs/                Verification notes and actual browser screenshots
 - Authentication uses server-side sessions instead of JWTs so logout immediately revokes access. Cookies are HttpOnly and SameSite=Lax; writes additionally require a matching Origin header. Login/registration are rate limited to 30 requests per 15 minutes per IP.
 - The initial schema is idempotent; schema evolution would use numbered migrations. Reads and deletes are account-scoped; missing and unowned IDs both return 404.
 - Google Fonts improve typography when available, with system sans-serif fallbacks. Core features do not require that external stylesheet.
-- This implementation was prepared with Codex assistance. Commits use a Codex identity and preserve the actual development sequence.
+- This implementation was prepared with Codex assistance. The Git history follows the actual development sequence.
 
 **With more time**
 
@@ -225,4 +225,4 @@ All screenshots use the fictional seeded account:
 
 The [requirement audit](docs/requirements.md) maps every mandatory feature and submission item to its implementation, evidence or remaining external step.
 
-The repository is ready to review and push to a public GitHub repository. It includes incremental Git commits, source, the lockfile, `.env.example`, setup instructions, seed script, tests and screenshots. No GitHub repository has been created or pushed, and no email has been sent by this implementation task.
+The [public GitHub repository](https://github.com/techmannih/sweety-glucose-tracker) includes incremental Git commits, source, the lockfile, `.env.example`, setup instructions, seed script, tests and screenshots.
