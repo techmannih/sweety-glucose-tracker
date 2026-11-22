@@ -3,7 +3,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { fileURLToPath } from 'node:url';
 import { authRouter, requireUser } from './auth.js';
-import { readingsRouter } from './readings.js';
+import { captureReadingValueSource, readingsRouter } from './readings.js';
 import { reportsRouter } from './reports.js';
 import { HttpError, errorHandler } from './errors.js';
 import { todayInZone } from '../../shared/domain.js';
@@ -12,7 +12,7 @@ export function createApp(pool, config, { limitAuth = true } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet());
-  app.use(express.json({ limit: '16kb' }));
+  app.use(express.json({ limit: '16kb', reviver: captureReadingValueSource }));
   app.use(cookieParser());
   app.use('/api', (req, res, next) => {
     res.set('Cache-Control', 'no-store');

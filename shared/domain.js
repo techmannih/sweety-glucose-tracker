@@ -15,6 +15,8 @@ export const SLOTS = [
   { value: 'after_dinner', label: 'After dinner', short: 'Dinner', hint: 'Your dinner reading' },
 ];
 
+export const WHOLE_GLUCOSE_VALUE_ERROR = 'Value must be a whole number between 40 and 600 mg/dl.';
+
 export function todayInZone(timeZone = 'Asia/Kolkata', now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -48,7 +50,7 @@ export function validateReading(input, today) {
     Number(input.value) < 40 ||
     Number(input.value) > 600
   ) {
-    errors.value = 'Value must be a whole number between 40 and 600 mg/dl.';
+    errors.value = WHOLE_GLUCOSE_VALUE_ERROR;
   }
   return errors;
 }

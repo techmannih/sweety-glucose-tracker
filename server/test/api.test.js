@@ -9,7 +9,7 @@ import request from 'supertest';
 import bcrypt from 'bcrypt';
 import { createApp } from '../src/app.js';
 import { migrate } from '../db/migrate.js';
-import { SIGNUP_SUCCESS_MESSAGE } from '../../shared/auth.js';
+import { ACCOUNT_HEADER, SIGNUP_SUCCESS_MESSAGE } from '../../shared/auth.js';
 
 const config = {
   origin: 'http://localhost:5173',
@@ -272,6 +272,50 @@ test('API validation rejects malformed bodies, future dates, invalid slots and n
   await agent.post('/api/readings').set(headers).send(reading('after_dinner', 600)).expect(201);
 });
 
+test('raw fractional JSON numbers cannot round into a valid reading on create or edit', async () => {
+  const { agent } = await account();
+  const { body } = await agent.post('/api/readings').set(headers).send(reading()).expect(201);
+  const original = body.reading;
+  const rawBody = (slot, token) => `{"date":"${original.date}","slot":"${slot}","value":${token}}`;
+  const jsonHeaders = { ...headers, 'Content-Type': 'application/json' };
+
+  for (const token of [
+    '600.00000000000001',
+    '39.999999999999999',
+    '4.000000000000000001e1',
+    '4e9999999999999999999',
+  ]) {
+    const created = await agent
+      .post('/api/readings')
+      .set(jsonHeaders)
+      .send(rawBody('after_lunch', token))
+      .expect(400);
+    const updated = await agent
+      .put(`/api/readings/${original.id}`)
+      .set(jsonHeaders)
+      .send(rawBody(original.slot, token))
+      .expect(400);
+    assert.match(created.body.fields.value, /whole number/);
+    assert.match(updated.body.fields.value, /whole number/);
+  }
+  const { body: list } = await agent.get('/api/readings').expect(200);
+  assert.equal(list.total, 1);
+  assert.deepEqual(list.readings, [original]);
+
+  for (const [token, expected] of [
+    ['600.0', 600],
+    ['400e-1', 40],
+    ['"150"', 150],
+  ]) {
+    const { body: valid } = await agent
+      .put(`/api/readings/${original.id}`)
+      .set(jsonHeaders)
+      .send(rawBody(original.slot, token))
+      .expect(200);
+    assert.equal(valid.reading.value, expected);
+  }
+});
+
 test('four slots enforce the daily maximum; concurrent duplicates produce exactly one reading', async () => {
   const { agent } = await account();
   const attempts = await Promise.all(
@@ -405,6 +449,36 @@ test('another account cannot list, report, edit or delete someone else’s readi
   assert.equal((await owner.agent.get('/api/readings')).body.total, 1);
 });
 
+test('a stale tab cannot read or write when the browser session belongs to a different account', async () => {
+  const original = await account();
+  const active = await account();
+  const { body } = await active.agent
+    .post('/api/readings')
+    .set(headers)
+    .send(reading())
+    .expect(201);
+  const staleAccount = { [ACCOUNT_HEADER]: original.user.id };
+  await active.agent.get('/api/readings').set(staleAccount).expect(401);
+  await active.agent.get('/api/reports?date=2024-10-15').set(staleAccount).expect(401);
+  await active.agent
+    .post('/api/readings')
+    .set({ ...headers, ...staleAccount })
+    .send(reading('after_lunch', 112))
+    .expect(401);
+  const staleLogout = await active.agent
+    .post('/api/auth/logout')
+    .set({ ...headers, ...staleAccount })
+    .expect(401);
+  assert.equal(staleLogout.headers['set-cookie'], undefined);
+
+  const { body: list } = await active.agent
+    .get('/api/readings')
+    .set(ACCOUNT_HEADER, active.user.id)
+    .expect(200);
+  assert.equal(list.total, 1);
+  assert.deepEqual(list.readings, [body.reading]);
+});
+
 test('reports include the exact period boundaries and round averages to one decimal', async () => {
   const { agent } = await account();
   for (const body of [
@@ -465,9 +539,48 @@ test('pagination has deterministic slot order, counts, date filters, and validat
     page.readings.map((r) => r.slot),
     ['after_lunch', 'after_dinner'],
   );
+  const { body: outOfRange } = await agent
+    .get('/api/readings?page=3&limit=2&date=2024-10-15')
+    .expect(200);
+  assert.deepEqual(outOfRange, { page: 3, limit: 2, total: 4, readings: [] });
   assert.equal((await agent.get('/api/readings?date=2024-10-16')).body.total, 0);
   for (const query of ['page=0', 'page=1.5', 'limit=101', 'limit=-1', 'date=bad', 'page[]=1'])
     await agent.get(`/api/readings?${query}`).expect(400);
+});
+
+test('pagination returns a matching count and page across a concurrent database insert', async () => {
+  const { agent, cookie, user } = await account();
+  const id = randomUUID();
+  let committedInsert;
+  const controlledPool = {
+    query(sql, params) {
+      if (!/\bFROM readings\b/i.test(sql)) return pool.query(sql, params);
+      if (committedInsert) return committedInsert.then(() => pool.query(sql, params));
+
+      const firstRead = pool.query(sql, params);
+      // If the handler makes another readings query, it runs after the real insert commits.
+      committedInsert = firstRead.then(() =>
+        pool.query('INSERT INTO readings(id,user_id,date,slot,value) VALUES ($1,$2,$3,$4,$5)', [
+          id,
+          user.id,
+          '2024-10-15',
+          'morning',
+          112,
+        ]),
+      );
+      return committedInsert.then(() => firstRead);
+    },
+  };
+  const controlledApp = createApp(controlledPool, config, { limitAuth: false });
+  const { body: beforeInsert } = await request(controlledApp)
+    .get('/api/readings?page=1&limit=1')
+    .set('Cookie', cookie)
+    .expect(200);
+  assert.deepEqual(beforeInsert, { page: 1, limit: 1, total: 0, readings: [] });
+
+  const { body: afterInsert } = await agent.get('/api/readings?page=1&limit=1').expect(200);
+  assert.equal(afterInsert.total, 1);
+  assert.deepEqual(afterInsert.readings, [{ id, ...reading('morning', 112) }]);
 });
 
 test('database constraints independently reject duplicate slots and invalid glucose values', async () => {

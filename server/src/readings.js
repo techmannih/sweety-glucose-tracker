@@ -1,11 +1,36 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { HttpError } from './errors.js';
-import { SLOTS, validateReading, validDate, todayInZone } from '../../shared/domain.js';
+import {
+  SLOTS,
+  WHOLE_GLUCOSE_VALUE_ERROR,
+  validateReading,
+  validDate,
+  todayInZone,
+} from '../../shared/domain.js';
 
 export const SLOT_ORDER =
   "CASE slot WHEN 'morning' THEN 1 WHEN 'after_breakfast' THEN 2 WHEN 'after_lunch' THEN 3 ELSE 4 END";
 const columns = 'id, date::text, slot, value';
+const readingValueSources = new WeakMap();
+
+// JSON.parse can round a fractional literal to an integer before validation sees it.
+export function captureReadingValueSource(key, value, { source } = {}) {
+  if (key === 'value' && typeof value === 'number') readingValueSources.set(this, source);
+  return value;
+}
+
+function isExactWholeNumber(source) {
+  const token = /^-?(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(source);
+  if (!token) return false;
+  const [, whole, fraction = '', exponent = '0'] = token;
+  const fractionalPlaces = fraction.length - Number(exponent);
+  if (fractionalPlaces <= 0) return true;
+  const digits = whole + fraction;
+  // Shift the decimal point conceptually so extreme exponents need no allocation.
+  return fractionalPlaces <= digits.length && !/[1-9]/.test(digits.slice(-fractionalPlaces));
+}
+
 function requireId(id) {
   if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id))
     throw new HttpError(404, 'Reading not found.');
@@ -36,20 +61,34 @@ export function readingsRouter(pool, config) {
       params.push(req.query.date);
       where += ' AND date=$2';
     }
-    const [count, result] = await Promise.all([
-      pool.query(`SELECT count(*)::int AS total FROM readings WHERE ${where}`, params),
-      pool.query(
-        `SELECT ${columns} FROM readings WHERE ${where} ORDER BY date DESC, ${SLOT_ORDER}, id LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-        [...params, limit, (page - 1) * limit],
-      ),
-    ]);
-    res.json({ readings: result.rows, page, limit, total: count.rows[0].total });
+    const order = `date DESC, ${SLOT_ORDER}, id`;
+    // The count and page share one PostgreSQL statement snapshot, even for an empty page.
+    const {
+      rows: [result],
+    } = await pool.query(
+      `WITH reading_page AS (
+         SELECT id, date, slot, value FROM readings WHERE ${where}
+         ORDER BY ${order} LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+       )
+       SELECT (SELECT count(*)::int FROM readings WHERE ${where}) AS total,
+         COALESCE(json_agg(json_build_object('id', id, 'date', date::text, 'slot', slot, 'value', value)
+                           ORDER BY ${order}), '[]'::json) AS readings
+       FROM reading_page`,
+      [...params, limit, (page - 1) * limit],
+    );
+    res.json({ ...result, page, limit });
   });
 
   async function save(req, res, editing) {
     if (editing) requireId(req.params.id);
     const input = req.body || {};
     const fields = validateReading(input, todayInZone(config.timeZone));
+    if (
+      !fields.value &&
+      typeof input.value === 'number' &&
+      !isExactWholeNumber(readingValueSources.get(input))
+    )
+      fields.value = WHOLE_GLUCOSE_VALUE_ERROR;
     if (Object.keys(fields).length) throw new HttpError(400, Object.values(fields)[0], fields);
     const client = await pool.connect();
     try {
