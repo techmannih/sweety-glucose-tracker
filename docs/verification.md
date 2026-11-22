@@ -4,12 +4,21 @@ Original browser verification: 19 November 2026, macOS arm64 and the Codex in-ap
 
 ## Automated checks
 
-- All 56 tests passed on Node 24 on 22 November: 21 server/domain and 35 frontend tests. `npm test` runs both suites.
+- All 63 tests passed on Node 24 on 22 November (24 server/domain and 39 frontend tests). `npm test` runs both suites.
 - `npm run build`: production React build succeeds.
 - npm dependency audit: zero known vulnerabilities in the installed lockfile at verification time.
 - The server tests create and drop an isolated temporary PostgreSQL database. These are real SQL integration tests, not database mocks.
 
 The 22 November regression tests cover pending creates and edits, recovery after a rejected save, editing a reading on a full day, unchanged data after invalid updates, and report queries with unknown or repeated parameters.
+
+## Pre-submission review fixes (22 November 2026)
+
+- A real Chromium session switched between two synthetic accounts from one of two tabs. The second tab cleared the first account, its readings and an unsaved draft. Both tabs displayed the second account's report. Automated tests also cover session revalidation on focus and mismatched account requests.
+- Raw JSON fractional inputs that JavaScript would round into the valid glucose range return HTTP 400 on create and edit. Integration tests verify that the stored reading remains unchanged and exact integer inputs still work.
+- A failed delete leaves the reading visible. The retry reopens confirmation and issues the second request after the user confirms. A history-only failure leaves the daily report, reading count and slots available.
+- One PostgreSQL statement returns the ordered history page and total. A concurrent-write regression verifies that both results describe the same database snapshot, including empty or out-of-range pages.
+- Populated history fit the 320 px browser viewport. Table overflow stayed inside the scroll container, and the edit action opened the selected record.
+- Isolated development smoke tests verified health, signup, login and session reads through Vite. They used a custom IPv6 host and port from `.env`, then a custom IPv4 host and port set in the shell.
 
 ## Message timing and login transition (21 November 2026)
 

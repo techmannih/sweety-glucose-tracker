@@ -98,6 +98,8 @@ npm run dev:client
 
 Vite proxies `/api` to Express, so the browser uses one origin and no cross-origin credential sharing. A write requires an `Origin` header matching `APP_ORIGIN`; this also applies to API clients such as curl.
 
+If port 3001 is occupied, set `PORT` in the repository's `.env` before starting either process. Express and the Vite proxy read the same API `HOST` and `PORT`. Shell values override `.env` values, so use the same settings for both processes. The React development URL stays at `http://localhost:5173`.
+
 ## Build and serve
 
 ```sh
@@ -135,7 +137,7 @@ The tests cover:
 - Form errors, successful submission, server error handling and editing/cancel behavior.
 - Failed and retried reports, genuine empty periods, pending-save controls, draft preservation, login/account switching, and concurrent edit/delete handling.
 
-All **56 tests** passed on Node 24 for the 22 November review fixes, along with the production Vite build and formatting check. Browser verification, regression coverage and limitations are described in [docs/verification.md](docs/verification.md). Docker was unavailable on the verification host, so Compose runtime verification is pending.
+All **63 tests** passed on Node 24 for the pre-submission review fixes, along with the production Vite build and formatting check. Browser verification covered cross-tab account switching and history at 320 px. Docker runtime verification is pending. [Verification details](docs/verification.md)
 
 ## Environment variables
 
@@ -191,7 +193,7 @@ docs/                Verification notes and actual browser screenshots
 **Assumptions**
 
 - The brief says MERN + PostgreSQL but explicitly requests PostgreSQL; this app uses PostgreSQL and does not add MongoDB.
-- Readings store calendar dates, not measurement timestamps. An app-wide configurable timezone determines today. Browser config is fetched on page load; refresh a long-running tab after midnight.
+- Readings use calendar dates. The configured app timezone determines today. The journal refreshes its date limit when the page opens or regains focus and preserves the selected report date.
 - The earliest accepted date is 1 January 1900. Future readings and future report-selection dates are rejected. The four slots describe the patient's chosen category; no clock-time enforcement is assumed.
 - Four allowed slot values plus `UNIQUE(user_id, date, slot)` make a fifth reading impossible. Per-user row locks serialize creates and edits. An update returns 404 if a concurrent deletion removes its reading before the update can write. A duplicate-slot error takes precedence if both the daily maximum and slot uniqueness apply.
 - Statistics include recorded values only. No-data averages/min/max are `null`; the UI shows a dash, while the count is zero. The UI formats averages with exactly one decimal.
