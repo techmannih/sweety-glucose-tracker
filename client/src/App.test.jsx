@@ -166,7 +166,11 @@ test('login success stays on the login screen for 1.5 seconds; account switching
   expect(document.querySelector('.reading-number')).toBeNull();
   expect(screen.queryByText('Login successful!')).not.toBeInTheDocument();
   await act(async () => {
-    vi.advanceTimersByTime(1500);
+    vi.advanceTimersByTime(2999);
+  });
+  expect(screen.getByRole('status')).toHaveTextContent('Logout successful!');
+  await act(async () => {
+    vi.advanceTimersByTime(1);
   });
   expect(screen.queryByText('Logout successful!')).not.toBeInTheDocument();
   vi.useRealTimers();

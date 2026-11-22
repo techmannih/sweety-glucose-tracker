@@ -1057,6 +1057,17 @@ td {
   margin-bottom: 0;
   align-items: flex-start;
 }
+.logout-toast {
+  position: fixed;
+  z-index: 21;
+  top: max(16px, env(safe-area-inset-top));
+  inset-inline: 16px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  box-shadow: 0 5px 20px #173f3526;
+  pointer-events: none;
+}
 .auth-switch {
   font-size: 0.8125rem;
   margin-top: 20px;

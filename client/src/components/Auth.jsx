@@ -3,7 +3,8 @@ import { Droplet, ShieldCheck, Activity, Sprout, Check } from 'lucide-react';
 import { api } from '../api.js';
 import { normalizeEmail, SIGNUP_SUCCESS_MESSAGE, validateAuth } from '../../../shared/auth.js';
 
-const AUTH_NOTICE_MS = 1500;
+const LOGIN_NOTICE_MS = 1500;
+const LOGOUT_NOTICE_MS = 3000;
 
 export default function Auth({ onLogin, initialSuccess = '' }) {
   const [register, setRegister] = useState(false);
@@ -14,18 +15,19 @@ export default function Auth({ onLogin, initialSuccess = '' }) {
   const [busy, setBusy] = useState(false);
   const [pendingUser, setPendingUser] = useState(null);
   const waiting = busy || Boolean(pendingUser);
+  const showingLogoutNotice = Boolean(initialSuccess && success === initialSuccess);
   useEffect(() => {
-    if (!initialSuccess || success !== initialSuccess) return;
-    const timer = setTimeout(() => setSuccess(''), AUTH_NOTICE_MS);
+    if (!showingLogoutNotice) return;
+    const timer = setTimeout(() => setSuccess(''), LOGOUT_NOTICE_MS);
     return () => clearTimeout(timer);
-  }, [initialSuccess, success]);
+  }, [showingLogoutNotice]);
   useEffect(() => {
     if (!pendingUser) return;
     const timer = setTimeout(() => {
       setSuccess('');
       setPendingUser(null);
       onLogin(pendingUser);
-    }, AUTH_NOTICE_MS);
+    }, LOGIN_NOTICE_MS);
     return () => clearTimeout(timer);
   }, [pendingUser, onLogin]);
   async function submit(event) {
@@ -58,8 +60,15 @@ export default function Auth({ onLogin, initialSuccess = '' }) {
       setBusy(false);
     }
   }
+  const successNotice = success && (
+    <div className={`toast ${showingLogoutNotice ? 'logout-toast' : 'auth-success'}`} role="status">
+      <Check size={18} aria-hidden="true" />
+      <span>{success}</span>
+    </div>
+  );
   return (
     <main className="auth-layout">
+      {showingLogoutNotice && successNotice}
       <section className="auth-story">
         <a className="brand" href="/">
           <span className="brand-icon">
@@ -119,12 +128,7 @@ export default function Auth({ onLogin, initialSuccess = '' }) {
               ? 'Create an account to begin recording your readings.'
               : 'Log in and pick up where you left off.'}
           </p>
-          {success && (
-            <div className="toast auth-success" role="status">
-              <Check size={18} aria-hidden="true" />
-              <span>{success}</span>
-            </div>
-          )}
+          {!showingLogoutNotice && successNotice}
           <form onSubmit={submit} noValidate>
             {register && (
               <>
